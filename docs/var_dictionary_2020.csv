@@ -1,0 +1,30 @@
+varname,label
+pid,个人ID
+fid,2020年家庭样本编码 [orig: fid20]
+gender,受访者性别
+provcd,2020年省国标码 [orig: provcd20]
+urban,基于国家统计局资料的城乡分类 [orig: urban20]
+ethnicity,加载变量：民族数据是否有数据 [orig: minzu]
+birth_year,出生年份更新 [orig: ibirthy_update]
+marital_status,当前婚姻状态 [orig: qea0]
+ka205,未来两年生育意愿 [orig: qka205; 2020 adult file only]
+employ,当前工作状态
+income,过去12个月所有工作（主要工作+一般工作）的税后工资性收入 [orig: emp_income]
+xchildpid_a_1,受访者子女1（F模块）
+xchildpid_a_2,受访者子女2（F模块）
+xchildpid_a_3,受访者子女3（F模块）
+xchildpid_a_4,受访者子女4（F模块）
+xchildpid_a_5,受访者子女5（F模块）
+xchildpid_a_6,受访者子女6（F模块）
+xchildpid_a_7,受访者子女7（F模块）
+xchildpid_a_8,受访者子女8（F模块）
+edu_level,CFPS2020个人问卷受访者已完成的最高学历 [orig: cfps2020edu]
+years_schooling,CFPS2020个人问卷受访者已完成的受教育年限 [orig: cfps2020eduy]
+year,Survey year
+wave,Survey wave
+age,Age at survey [constructed]
+fid20,2020年家庭编码
+children,Number of children [counted from famconf code_a_c1..code_a_c8]
+has2plus,Has 2 or more children [constructed from famconf code count]
+father_pid,Father PID [to be filled from famconf in step 02]
+mother_pid,Mother PID [to be filled from famconf in step 02]

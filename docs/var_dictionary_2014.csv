@@ -1,0 +1,30 @@
+varname,label
+pid,个人ID
+fid,2014年家庭样本编码 [orig: fid14]
+provcd,2014年省国标码 [orig: provcd14]
+urban,基于国家统计局资料的城乡分类 [orig: urban14]
+father_pid,父亲在调查中的样本编码 [orig: pid_f]
+mother_pid,母亲在调查中的样本编码 [orig: pid_m]
+code_a_c1,孩1个人编码
+code_a_c2,孩2个人编码
+code_a_c3,孩3个人编码
+code_a_c4,孩4个人编码
+code_a_c5,孩5个人编码
+code_a_c6,孩6个人编码
+code_a_c7,孩7个人编码
+code_a_c8,孩8个人编码
+code_a_c9,孩9个人编码
+code_a_c10,孩10个人编码
+birth_year,出生年份 [orig: cfps_birthy]
+ethnicity,民族 [orig: cfps_minzu]
+gender,性别 [orig: cfps_gender]
+marital_status,当前婚姻状态 [orig: qea0]
+edu_level,CFPS2014个人问卷受访者已完成的最高学历 [orig: cfps2014edu]
+years_schooling,CFPS2014个人问卷受访者已完成的受教育年限 [orig: cfps2014eduy]
+employ,当前工作状态 [orig: employ2014]
+income,所有工作总收入
+year,Survey year
+wave,Survey wave
+age,Age at survey [constructed]
+children,(max) children
+has2plus,Has 2 or more children [constructed from famconf code count]

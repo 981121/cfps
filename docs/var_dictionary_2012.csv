@@ -1,0 +1,26 @@
+varname,label
+pid,个人id
+fid,2012年家户号 [orig: fid12]
+provcd,省国标码
+urban,2012年国家统计局城乡分类 [orig: urban12]
+ethnicity,CFPS_MINZU [orig: cfps_minzu]
+marital_status,现在的婚姻状况 [orig: qe104]
+gender,受访者性别-修正 [orig: cfps2012_gender_best]
+birth_year,受访者出生年-修正 [orig: cfps2012_birthy_best]
+income,个人收入
+income_adj,个人收入（调整后）
+employ,就业状态
+edu_level,Highest level of edu attained:2012 [orig: edu2012]
+years_schooling,Years of schooling completed:2012 [orig: eduy2012]
+community_type,居住社区类型(简化) [orig: typecomm]
+community_urban,城乡(按社区性质分) [orig: urbancomm]
+age_youngest_child,age of youngest child [orig: cageyog]
+children_v1,number of children-version 1 [orig: nchd1; alternative count]
+children,number of children-version 2 [orig: nchd2; main children count]
+children_v3,number of children-version 3 [orig: nchd3; alternative count]
+father_pid,父亲在调查中的样本编码 [orig: pid_f]
+mother_pid,母亲在调查中的样本编码 [orig: pid_m]
+year,Survey year
+wave,Survey wave
+age,Age at survey [constructed]
+has2plus,Has 2 or more children [constructed from nchd2; main children count]

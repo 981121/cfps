@@ -1,0 +1,20 @@
+varname,label
+pid,个人ID
+fid,2016年家庭样本编码 [orig: fid16]
+provcd,2016年省国标码 [orig: provcd16]
+urban,基于国家统计局资料的城乡分类 [orig: urban16]
+birth_year,出生年份 [orig: cfps_birthy]
+gender,性别 [orig: cfps_gender]
+children,受访者子女数目 [orig: cfps_childn]
+marital_status,当前婚姻状态 [orig: qea0]
+employ,当前工作状态
+income,所有工作总收入
+edu_level,CFPS2016个人问卷受访者已完成的最高学历 [orig: cfps2016edu]
+years_schooling,CFPS2016个人问卷受访者已完成的受教育年限 [orig: cfps2016eduy]
+year,Survey year
+wave,Survey wave
+age,Age at survey [constructed]
+has2plus,Has 2 or more children [constructed from cfps_childn]
+father_pid,Father PID [to be filled from famconf in step 02]
+mother_pid,Mother PID [to be filled from famconf in step 02]
+ethnicity,Ethnicity [not in 2016 adult; to be filled from earlier waves]

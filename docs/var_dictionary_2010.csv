@@ -1,0 +1,20 @@
+varname,label
+pid,Individual PID
+fid,Household ID [orig: fid; no wave suffix in 2010 raw]
+provcd,Province code [orig: provcd]
+wave,CFPS wave
+year,Survey year
+gender,Gender [orig: gender]
+birth_year,Birth year (corrected) [orig: qa1y_best]
+ethnicity,"Ethnicity code [orig: qa5code; actual code, unlike 2018+ flag-only minzu]"
+marital_status,Current marital status [orig: qe1_best; verified consistent with qe104/qea0]
+children,(max) children
+has2plus,Has 2+ children (0/1)
+edu_level,Highest completed education level [orig: cfps2010edu_best]
+years_schooling,Years of schooling [orig: cfps2010eduy_best]
+income,Individual income (annual) [orig: income]
+employ,Has job now (1/0/-8→.) [orig: qg3; verified consistent with later waves' employ]
+urban,Urban/rural: NBS classification [orig: urban; equiv. to urban12..urban22]
+own_sib,"Number of siblings (self-reported, 2010) [orig: qb1]"
+father_pid,Father PID [orig: pid_f; from adult file directly]
+mother_pid,Mother PID [orig: pid_m; from adult file directly]
