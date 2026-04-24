@@ -1,0 +1,1675 @@
+---------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/05_analysis.log
+  log type:  text
+ opened on:  24 Apr 2026, 06:13:53
+
+. 
+. display "=================================================="
+==================================================
+
+. display "Loaded did_panel.dta"
+Loaded did_panel.dta
+
+. display "=================================================="
+==================================================
+
+. 
+. describe
+
+Contains data from /Users/huy/cfps_fertility_project/data/analysis/did_panel.dta
+ Observations:        33,194                  
+    Variables:            30                  24 Apr 2026 06:08
+---------------------------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+---------------------------------------------------------------------------------------------------------------------
+pid             double  %12.0g     pid        Individual PID
+fid             long    %12.0g     fid        Household ID (wave-specific)
+provcd          byte    %24.0g     provcd     Province code
+wave            int     %9.0g                 CFPS wave year
+year            int     %9.0g                 Survey year
+birth_year      int     %12.0g     qa1y_best
+                                              Birth year
+gender          byte    %12.0g     gender     Gender
+ethnicity       byte    %15.0g     qa5code    Ethnicity code
+age             int     %9.0g                 Age at survey
+post2016        byte    %9.0g                 Post two-child policy: 1 if year >= 2016
+children        byte    %9.0g                 Number of children at survey
+has2plus        byte    %9.0g                 Has 2+ children (0/1)
+father_pid      double  %12.0g     pid_f      Father PID [from backbone; 2010/2012/2014 from adult file; 2016+ from
+                                                famconf]
+mother_pid      double  %12.0g     pid_m      Mother PID [from backbone; 2010/2012/2014 from adult file; 2016+ from
+                                                famconf]
+parent_multisib byte    %9.0g                 MAIN DiD treatment: any observed parent had ≥1 sibling [qb1, OR]
+                                                (0/1/.)
+father_sib      byte    %12.0g     qb1        Father's sibling count [orig: qb1, 2010 adult]
+mother_sib      byte    %12.0g     qb1        Mother's sibling count [orig: qb1, 2010 adult]
+father_multisib byte    %9.0g                 Father had ≥1 sibling per 2010 qb1 (0/1/.)
+mother_multisib byte    %9.0g                 Mother had ≥1 sibling per 2010 qb1 (0/1/.)
+has_father_link byte    %9.0g                 1 if father_pid non-missing in backbone
+has_mother_link byte    %9.0g                 1 if mother_pid non-missing in backbone
+marital_status  byte    %21.0g     qe1_best   Current marital status
+edu_level       byte    %12.0g     cfps2010edu_best
+                                              Highest education level
+years_schooling byte    %12.0g     cfps2010eduy_best
+                                              Years of schooling
+income          long    %12.0g     income     Individual income (annual)
+employ          byte    %12.0g     qg3        Currently employed (1/0)
+urban           byte    %12.0g     urban      Urban: NBS classification
+own_sib         byte    %12.0g     qb1        Number of siblings (self-reported, 2010) [orig: qb1; 2010 wave only]
+wka202          byte    %12.0g     wka202     wka202 [orig: wka202; 2012 child questionnaire only]
+ka205           byte    %15.0g     qka205     ka205 [orig: qka205; 2020 adult wave only]
+---------------------------------------------------------------------------------------------------------------------
+Sorted by: 
+     Note: Dataset has changed since last saved.
+
+. summarize
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         pid |     33,194    3.92e+08    1.55e+08   1.00e+08   6.40e+09
+         fid |     33,194    389840.8    190286.5     100125    6646971
+      provcd |     33,132    38.88491    15.00813         -9         65
+        wave |     33,194     2015.44    3.765825       2010       2022
+        year |     33,194     2015.44    3.765825       2010       2022
+-------------+---------------------------------------------------------
+  birth_year |     33,194    1979.536    2.893812       1975       1984
+      gender |     33,194    .5125324    .4998504          0          1
+   ethnicity |     26,327    1.065294    1.278311          0         38
+         age |     33,194     35.9042    4.699211         26         47
+    post2016 |     33,194    .5173827    .4997053          0          1
+-------------+---------------------------------------------------------
+    children |     33,042    1.475183    .8586797          0          9
+    has2plus |     33,194     .468669    .4990249          0          1
+  father_pid |     12,798    4.00e+08    1.49e+08   1.04e+08   1.10e+09
+  mother_pid |     13,761    4.01e+08    1.47e+08   1.04e+08   1.10e+09
+parent_mul~b |      1,688    .9200237    .2713369          0          1
+-------------+---------------------------------------------------------
+  father_sib |      1,591    2.069767    1.552287          0          8
+  mother_sib |      1,662    2.075211    1.563737          0          9
+father_mul~b |      1,591     .912005    .2833767          0          1
+mother_mul~b |      1,662    .9043321    .2942238          0          1
+has_father~k |     33,194    .3816654    .4858025          0          1
+-------------+---------------------------------------------------------
+has_mother~k |     33,194    .4093812    .4917271          0          1
+marital_st~s |     32,701    2.019051    .4705105          1          5
+   edu_level |     32,810    3.152057    1.421355          1          9
+years_scho~g |     30,090    9.228149    4.292741          0         23
+      income |     22,437    29246.06     51403.7          0    3036046
+-------------+---------------------------------------------------------
+      employ |     31,884    1.355006    1.482543          0          8
+       urban |     31,848    .5170183    .4997181          0          1
+     own_sib |      4,776    1.787688    1.429877          0         13
+      wka202 |          0
+       ka205 |      3,571    -.641277    2.245785         -8          1
+
+. 
+. *******************************************************
+. * 2. Data cleaning and validation
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "DATA CLEANING AND VALIDATION"
+DATA CLEANING AND VALIDATION
+
+. display "=================================================="
+==================================================
+
+. 
+. *------------------------------------------------------*
+. * 2a. Recode non-substantive negative values to missing
+. *------------------------------------------------------*
+. 
+. foreach v in provcd ethnicity children marital_status edu_level ///
+>              years_schooling income employ urban {
+  2.     capture confirm variable `v'
+  3.     if !_rc {
+  4.         replace `v' = . if `v' < 0
+  5.     }
+  6. }
+(38 real changes made, 38 to missing)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+
+. 
+. *------------------------------------------------------*
+. * 2b. Additional range checks
+. *------------------------------------------------------*
+. 
+. * gender should be 0/1
+. capture confirm variable gender
+
+. if !_rc {
+.     replace gender = . if !inlist(gender, 0, 1)
+(0 real changes made)
+. }
+
+. 
+. * post2016 should be 0/1
+. capture confirm variable post2016
+
+. if !_rc {
+.     replace post2016 = . if !inlist(post2016, 0, 1)
+(0 real changes made)
+. }
+
+. 
+. * urban should be 0/1 after cleaning
+. capture confirm variable urban
+
+. if !_rc {
+.     replace urban = . if !inlist(urban, 0, 1) & !missing(urban)
+(0 real changes made)
+. }
+
+. 
+. * children should not be negative after cleaning; impose a sensible upper bound if desired
+. capture confirm variable children
+
+. if !_rc {
+.     replace children = . if children < 0
+(0 real changes made)
+.     replace children = . if children > 15
+(0 real changes made)
+. }
+
+. 
+. * father_sib / mother_sib should be nonnegative
+. capture confirm variable father_sib
+
+. if !_rc {
+.     replace father_sib = . if father_sib < 0
+(0 real changes made)
+. }
+
+. capture confirm variable mother_sib
+
+. if !_rc {
+.     replace mother_sib = . if mother_sib < 0
+(0 real changes made)
+. }
+
+. 
+. * parent_multisib / father_multisib / mother_multisib should be 0/1
+. foreach v in parent_multisib father_multisib mother_multisib has_father_link has_mother_link {
+  2.     capture confirm variable `v'
+  3.     if !_rc {
+  4.         replace `v' = . if !inlist(`v', 0, 1) & !missing(`v')
+  5.     }
+  6. }
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+(0 real changes made)
+
+. 
+. *------------------------------------------------------*
+. * 2c. Rebuild has2plus from cleaned children
+. *------------------------------------------------------*
+. capture drop has2plus
+
+. gen has2plus = children >= 2 if !missing(children)
+(152 missing values generated)
+
+. label variable has2plus "Has 2 or more children (rebuilt from cleaned children)"
+
+. 
+. *------------------------------------------------------*
+. * 2d. Rebuild parent_sibsize and treatment thresholds
+. *------------------------------------------------------*
+. capture drop parent_sibsize
+
+. egen parent_sibsize = rowmax(father_sib mother_sib)
+(31,477 missing values generated)
+
+. label variable parent_sibsize "Maximum parental sibling count"
+
+. 
+. * sib1: MAIN binary treatment (any parent ≥ 1 sibling)
+. capture drop sib1
+
+. gen sib1 = parent_sibsize >= 1 if !missing(parent_sibsize)
+(31,477 missing values generated)
+
+. label variable sib1 "Parent sibsize >= 1 [MAIN binary treatment]"
+
+. 
+. * sib2: robustness (parent sibsize >= 2)
+. capture drop sib2
+
+. gen sib2 = parent_sibsize >= 2 if !missing(parent_sibsize)
+(31,477 missing values generated)
+
+. label variable sib2 "Parent sibsize >= 2 [robustness threshold]"
+
+. 
+. capture drop sib3
+
+. gen sib3 = parent_sibsize >= 3 if !missing(parent_sibsize)
+(31,477 missing values generated)
+
+. label variable sib3 "Parent sibsize >= 3 [robustness threshold]"
+
+. 
+. *------------------------------------------------------*
+. * 2e. Simple validation checks
+. *------------------------------------------------------*
+. display _newline "---- Post-cleaning summaries ----"
+
+---- Post-cleaning summaries ----
+
+. summ children has2plus parent_sibsize father_sib mother_sib sib1 sib2 sib3
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+    children |     33,042    1.475183    .8586797          0          9
+    has2plus |     33,042     .470825    .4991556          0          1
+parent_sib~e |      1,717    2.093186    1.589426          0          9
+  father_sib |      1,591    2.069767    1.552287          0          8
+  mother_sib |      1,662    2.075211    1.563737          0          9
+-------------+---------------------------------------------------------
+        sib1 |      1,717    .9044846    .2940112          0          1
+        sib2 |      1,717    .5562027     .496976          0          1
+        sib3 |      1,717    .3063483    .4611104          0          1
+
+. 
+. display _newline "---- Post-cleaning tabulations ----"
+
+---- Post-cleaning tabulations ----
+
+. tab children, missing
+
+  Number of |
+children at |
+     survey |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      3,430       10.33       10.33
+          1 |     14,055       42.34       52.68
+          2 |     12,740       38.38       91.06
+          3 |      2,286        6.89       97.94
+          4 |        364        1.10       99.04
+          5 |        120        0.36       99.40
+          6 |         37        0.11       99.51
+          7 |          9        0.03       99.54
+          9 |          1        0.00       99.54
+          . |        152        0.46      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab has2plus, missing
+
+   Has 2 or |
+       more |
+   children |
+   (rebuilt |
+       from |
+    cleaned |
+  children) |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |     17,485       52.68       52.68
+          1 |     15,557       46.87       99.54
+          . |        152        0.46      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab sib1, missing
+
+     Parent |
+ sibsize >= |
+    1 [MAIN |
+     binary |
+ treatment] |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        164        0.49        0.49
+          1 |      1,553        4.68        5.17
+          . |     31,477       94.83      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab sib2, missing
+
+     Parent |
+ sibsize >= |
+          2 |
+[robustness |
+ threshold] |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        762        2.30        2.30
+          1 |        955        2.88        5.17
+          . |     31,477       94.83      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab sib3, missing
+
+     Parent |
+ sibsize >= |
+          3 |
+[robustness |
+ threshold] |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |      1,191        3.59        3.59
+          1 |        526        1.58        5.17
+          . |     31,477       94.83      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab urban, missing
+
+ Urban: NBS |
+classificat |
+        ion |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       乡村 |     15,382       46.34       46.34
+       城市 |     16,466       49.61       95.95
+          . |      1,346        4.05      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab gender, missing
+
+     Gender |      Freq.     Percent        Cum.
+------------+-----------------------------------
+         女 |     16,181       48.75       48.75
+         男 |     17,013       51.25      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. 
+. *------------------------------------------------------*
+. * 2f. Panel consistency check for children
+. * children is expected to be weakly non-decreasing over time
+. *------------------------------------------------------*
+. sort pid year
+
+. capture drop child_diff
+
+. by pid: gen child_diff = children - children[_n-1] if _n > 1 & !missing(children) & !missing(children[_n-1])
+(8,287 missing values generated)
+
+. 
+. display _newline "---- Changes in children across waves ----"
+
+---- Changes in children across waves ----
+
+. tab child_diff, missing
+
+ child_diff |      Freq.     Percent        Cum.
+------------+-----------------------------------
+         -4 |          2        0.01        0.01
+         -3 |          1        0.00        0.01
+         -2 |         15        0.05        0.05
+         -1 |        216        0.65        0.70
+          0 |     21,917       66.03       66.73
+          1 |      2,494        7.51       74.25
+          2 |        226        0.68       74.93
+          3 |         27        0.08       75.01
+          4 |          5        0.02       75.02
+          5 |          4        0.01       75.03
+          . |      8,287       24.97      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. 
+. * Fix: compute intermediate flag for non-missing obs, then propagate max per pid
+. capture drop _decline_obs any_child_decline
+
+. gen _decline_obs = (child_diff < 0) if !missing(child_diff)
+(8,287 missing values generated)
+
+. by pid: egen any_child_decline = max(_decline_obs)
+(1,363 missing values generated)
+
+. drop _decline_obs
+
+. 
+. display _newline "---- Individuals with any decline in children ----"
+
+---- Individuals with any decline in children ----
+
+. tab any_child_decline, missing
+
+any_child_d |
+     ecline |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |     30,604       92.20       92.20
+          1 |      1,227        3.70       95.89
+          . |      1,363        4.11      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. 
+. display _newline "---- Examples with child decline ----"
+
+---- Examples with child decline ----
+
+. list pid year children child_diff if child_diff < 0 in 1/80, sepby(pid) noobs
+
+  +----------------------------------------+
+  |       pid   year   children   child_~f |
+  |----------------------------------------|
+  | 110023101   2022          0         -1 |
+  +----------------------------------------+
+
+. 
+. 
+. 
+. 
+. xtset pid year
+
+Panel variable: pid (unbalanced)
+ Time variable: year, 2010 to 2022, but with gaps
+         Delta: 1 unit
+
+. 
+. *------------------------------------------------------*
+. * 2g. Reconstruct key treatment variables if needed
+. *     sib1 = parent_sibsize >= 1 (any parent has ≥1 sibling)
+. *            This is the MAIN binary treatment.
+. *     sib2 = parent_sibsize >= 2 (robustness — higher threshold)
+. *------------------------------------------------------*
+. 
+. capture confirm variable parent_sibsize
+
+. if _rc {
+.     egen parent_sibsize = rowmax(father_sib mother_sib)
+.     label variable parent_sibsize "Maximum parental sibling count"
+. }
+
+. 
+. * sib1: MAIN binary treatment (any parent ≥ 1 sibling)
+. capture confirm variable sib1
+
+. if _rc {
+.     gen sib1 = parent_sibsize >= 1 if !missing(parent_sibsize)
+.     label variable sib1 "Parent sibsize >= 1 [MAIN binary treatment]"
+. }
+
+. 
+. * sib2: robustness threshold (parent sibsize >= 2)
+. capture confirm variable sib2
+
+. if _rc {
+.     gen sib2 = parent_sibsize >= 2 if !missing(parent_sibsize)
+.     label variable sib2 "Parent sibsize >= 2 [robustness threshold]"
+. }
+
+. 
+. capture confirm variable did_main
+
+. if _rc {
+.     gen did_main = post2016 * sib1 if !missing(post2016) & !missing(sib1)
+(31,477 missing values generated)
+.     label variable did_main "DiD: post2016 x sib1"
+. }
+
+. 
+. capture confirm variable did_cont
+
+. if _rc {
+.     gen did_cont = post2016 * parent_sibsize if !missing(post2016) & !missing(parent_sibsize)
+(31,477 missing values generated)
+.     label variable did_cont "DiD: post2016 x parent_sibsize"
+. }
+
+. 
+. capture confirm variable did_father
+
+. if _rc {
+.     gen did_father = post2016 * father_multisib if !missing(post2016) & !missing(father_multisib)
+(31,603 missing values generated)
+.     label variable did_father "DiD: post2016 x father_multisib"
+. }
+
+. 
+. capture confirm variable did_mother
+
+. if _rc {
+.     gen did_mother = post2016 * mother_multisib if !missing(post2016) & !missing(mother_multisib)
+(31,532 missing values generated)
+.     label variable did_mother "DiD: post2016 x mother_multisib"
+. }
+
+. 
+. *******************************************************
+. * 3. Sample diagnostics
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "SAMPLE DIAGNOSTICS"
+SAMPLE DIAGNOSTICS
+
+. display "=================================================="
+==================================================
+
+. 
+. count
+  33,194
+
+. display "Total observations: " r(N)
+Total observations: 33194
+
+. 
+. preserve
+
+. bysort pid: keep if _n == 1
+(25,036 observations deleted)
+
+. count
+  8,158
+
+. display "Total unique individuals: " r(N)
+Total unique individuals: 8158
+
+. 
+. count if !missing(parent_sibsize)
+  382
+
+. display "Individuals with non-missing parent_sibsize: " r(N)
+Individuals with non-missing parent_sibsize: 382
+
+. 
+. count if !missing(sib2)
+  382
+
+. display "Individuals with non-missing sib2: " r(N)
+Individuals with non-missing sib2: 382
+
+. 
+. count if !missing(father_multisib)
+  350
+
+. display "Individuals with non-missing father_multisib: " r(N)
+Individuals with non-missing father_multisib: 350
+
+. 
+. count if !missing(mother_multisib)
+  367
+
+. display "Individuals with non-missing mother_multisib: " r(N)
+Individuals with non-missing mother_multisib: 367
+
+. restore
+
+. 
+. tab year
+
+Survey year |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       2010 |      4,807       14.48       14.48
+       2012 |      5,620       16.93       31.41
+       2014 |      5,593       16.85       48.26
+       2016 |      5,391       16.24       64.50
+       2018 |      4,906       14.78       79.28
+       2020 |      3,571       10.76       90.04
+       2022 |      3,306        9.96      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab post2016
+
+       Post |
+  two-child |
+  policy: 1 |
+ if year >= |
+       2016 |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |     16,020       48.26       48.26
+          1 |     17,174       51.74      100.00
+------------+-----------------------------------
+      Total |     33,194      100.00
+
+. tab sib1 if !missing(sib1), missing
+
+     Parent |
+ sibsize >= |
+    1 [MAIN |
+     binary |
+ treatment] |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        164        9.55        9.55
+          1 |      1,553       90.45      100.00
+------------+-----------------------------------
+      Total |      1,717      100.00
+
+. tab sib2 if !missing(sib2), missing
+
+     Parent |
+ sibsize >= |
+          2 |
+[robustness |
+ threshold] |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        762       44.38       44.38
+          1 |        955       55.62      100.00
+------------+-----------------------------------
+      Total |      1,717      100.00
+
+. tab father_multisib if !missing(father_multisib), missing
+
+ Father had |
+         ≥1 |
+sibling per |
+   2010 qb1 |
+    (0/1/.) |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        140        8.80        8.80
+          1 |      1,451       91.20      100.00
+------------+-----------------------------------
+      Total |      1,591      100.00
+
+. tab mother_multisib if !missing(mother_multisib), missing
+
+ Mother had |
+         ≥1 |
+sibling per |
+   2010 qb1 |
+    (0/1/.) |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        159        9.57        9.57
+          1 |      1,503       90.43      100.00
+------------+-----------------------------------
+      Total |      1,662      100.00
+
+. 
+. summ children has2plus parent_sibsize father_sib mother_sib if !missing(parent_sibsize)
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+    children |      1,713    1.374781    .8356088          0          4
+    has2plus |      1,713    .4232341    .4942161          0          1
+parent_sib~e |      1,717    2.093186    1.589426          0          9
+  father_sib |      1,591    2.069767    1.552287          0          8
+  mother_sib |      1,662    2.075211    1.563737          0          9
+
+. 
+. *******************************************************
+. * 4. Descriptive statistics by treatment group
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "DESCRIPTIVE STATISTICS"
+DESCRIPTIVE STATISTICS
+
+. display "=================================================="
+==================================================
+
+. 
+. tabstat children has2plus parent_sibsize father_sib mother_sib, ///
+>     by(sib1) stat(n mean sd min p50 max) columns(statistics)
+
+Summary for variables: children has2plus parent_sibsize father_sib mother_sib
+Group variable: sib1 (Parent sibsize >= 1 [MAIN binary treatment])
+
+    sib1 |         N      Mean        SD       Min       p50       Max
+---------+------------------------------------------------------------
+       0 |       163  1.079755   .838735         0         1         3
+         |       163   .208589   .407552         0         0         1
+         |       164         0         0         0         0         0
+         |       140         0         0         0         0         0
+         |       159         0         0         0         0         0
+---------+------------------------------------------------------------
+       1 |      1550  1.405806  .8294716         0         1         4
+         |      1550  .4458065  .4972148         0         0         1
+         |      1553  2.314231  1.510414         1         2         9
+         |      1451  2.269469  1.479431         1         2         8
+         |      1503  2.294744  1.483246         1         2         9
+---------+------------------------------------------------------------
+   Total |      1713  1.374781  .8356088         0         1         4
+         |      1713  .4232341  .4942161         0         0         1
+         |      1717  2.093186  1.589426         0         2         9
+         |      1591  2.069767  1.552287         0         2         8
+         |      1662  2.075211  1.563737         0         2         9
+----------------------------------------------------------------------
+
+. 
+. preserve
+
+. bysort pid: keep if _n == 1
+(25,036 observations deleted)
+
+. tabstat children has2plus parent_sibsize father_sib mother_sib, ///
+>     by(sib1) stat(n mean sd min p50 max) columns(statistics)
+
+Summary for variables: children has2plus parent_sibsize father_sib mother_sib
+Group variable: sib1 (Parent sibsize >= 1 [MAIN binary treatment])
+
+    sib1 |         N      Mean        SD       Min       p50       Max
+---------+------------------------------------------------------------
+       0 |        42  .7857143  .7168942         0         1         3
+         |        42  .0714286  .2606612         0         0         1
+         |        43         0         0         0         0         0
+         |        37         0         0         0         0         0
+         |        42         0         0         0         0         0
+---------+------------------------------------------------------------
+       1 |       338  1.038462  .7789897         0         1         3
+         |       338  .2573964  .4378478         0         0         1
+         |       339  2.241888  1.457652         1         2         9
+         |       313  2.201278  1.425859         1         2         8
+         |       325  2.224615  1.425737         1         2         9
+---------+------------------------------------------------------------
+   Total |       380  1.010526  .7755463         0         1         3
+         |       380  .2368421  .4257051         0         0         1
+         |       382  1.989529  1.545426         0         2         9
+         |       350  1.968571  1.508955         0         2         8
+         |       367  1.970027  1.517359         0         2         9
+----------------------------------------------------------------------
+
+. restore
+
+. 
+. *******************************************************
+. * 5. Baseline DID: binary treatment (sib1 = parent_sibsize >= 1)
+. *    sib1 is the MAIN binary treatment.
+. *    Robustness with sib2/sib3 is in Section 8.
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "BASELINE DID: sib1 (parent_sibsize >= 1) — MAIN"
+BASELINE DID: sib1 (parent_sibsize >= 1) — MAIN
+
+. display "=================================================="
+==================================================
+
+. 
+. * Outcome 1: children
+. xtreg children i.post2016##i.sib1 i.year ///
+>     if !missing(children) & !missing(sib1), ///
+>     fe vce(cluster pid)
+note: 1.sib1 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2612                                         min =          1
+     Between = 0.0826                                         avg =        4.5
+     Overall = 0.0888                                         max =          7
+
+                                                F(7, 380)         =      25.10
+corr(u_i, Xb) = 0.0433                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |   .6069593   .1006463     6.03   0.000     .4090659    .8048527
+       1.sib1 |          0  (omitted)
+              |
+post2016#sib1 |
+         1 1  |  -.0294891   .0945965    -0.31   0.755    -.2154872    .1565091
+              |
+         year |
+        2012  |    .189702   .0295951     6.41   0.000     .1315112    .2478927
+        2014  |   .3026468   .0337568     8.97   0.000     .2362734    .3690203
+        2016  |  -.2744562   .0414265    -6.63   0.000    -.3559101   -.1930023
+        2018  |  -.0685753    .032338    -2.12   0.035     -.132159   -.0049915
+        2020  |   .1321042   .0376811     3.51   0.001     .0580147    .2061938
+        2022  |          0  (omitted)
+              |
+        _cons |   1.043866   .0279521    37.34   0.000     .9889054    1.098826
+--------------+----------------------------------------------------------------
+      sigma_u |  .74343094
+      sigma_e |  .38404581
+          rho |   .7893527   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_children_bin
+
+. 
+. * Outcome 2: has2plus
+. xtreg has2plus i.post2016##i.sib1 i.year ///
+>     if !missing(has2plus) & !missing(sib1), ///
+>     fe vce(cluster pid)
+note: 1.sib1 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.1995                                         min =          1
+     Between = 0.0959                                         avg =        4.5
+     Overall = 0.0750                                         max =          7
+
+                                                F(7, 380)         =      16.91
+corr(u_i, Xb) = 0.0463                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |   .3260188   .0617335     5.28   0.000     .2046368    .4474008
+       1.sib1 |          0  (omitted)
+              |
+post2016#sib1 |
+         1 1  |   .0066486    .058932     0.11   0.910     -.109225    .1225223
+              |
+         year |
+        2012  |   .0965634   .0202571     4.77   0.000     .0567334    .1363934
+        2014  |   .1537253   .0230909     6.66   0.000     .1083234    .1991272
+        2016  |  -.1722759   .0269482    -6.39   0.000    -.2252621   -.1192897
+        2018  |  -.0495111   .0185448    -2.67   0.008    -.0859745   -.0130478
+        2020  |   .0139968   .0168116     0.83   0.406    -.0190586    .0470523
+        2022  |          0  (omitted)
+              |
+        _cons |    .248898   .0182421    13.64   0.000       .21303    .2847661
+--------------+----------------------------------------------------------------
+      sigma_u |  .41377216
+      sigma_e |  .24282164
+          rho |  .74383103   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_has2plus_bin
+
+. 
+. *******************************************************
+. * 6. Continuous treatment DID
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "CONTINUOUS DID: parent_sibsize"
+CONTINUOUS DID: parent_sibsize
+
+. display "=================================================="
+==================================================
+
+. 
+. xtreg children c.post2016##c.parent_sibsize i.year ///
+>     if !missing(children) & !missing(parent_sibsize), ///
+>     fe vce(cluster pid)
+note: parent_sibsize omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2624                                         min =          1
+     Between = 0.0787                                         avg =        4.5
+     Overall = 0.0866                                         max =          7
+
+                                                F(7, 380)         =      26.03
+corr(u_i, Xb) = 0.0375                          Prob > F          =     0.0000
+
+                                                 (Std. err. adjusted for 381 clusters in pid)
+---------------------------------------------------------------------------------------------
+                            |               Robust
+                   children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+----------------------------+----------------------------------------------------------------
+                   post2016 |   .6201983   .0640656     9.68   0.000     .4942308    .7461658
+             parent_sibsize |          0  (omitted)
+                            |
+c.post2016#c.parent_sibsize |  -.0187408   .0180867    -1.04   0.301    -.0543032    .0168217
+                            |
+                       year |
+                      2012  |   .1890809   .0296513     6.38   0.000     .1307797    .2473821
+                      2014  |   .3018727   .0338054     8.93   0.000     .2354036    .3683418
+                      2016  |  -.2753616   .0413709    -6.66   0.000    -.3567061   -.1940171
+                      2018  |  -.0687594   .0324363    -2.12   0.035    -.1325365   -.0049823
+                      2020  |   .1303334   .0380987     3.42   0.001     .0554226    .2052441
+                      2022  |          0  (omitted)
+                            |
+                      _cons |   1.044031   .0279623    37.34   0.000     .9890507    1.099011
+----------------------------+----------------------------------------------------------------
+                    sigma_u |  .74413127
+                    sigma_e |  .38374441
+                        rho |  .78992634   (fraction of variance due to u_i)
+---------------------------------------------------------------------------------------------
+
+. estimates store did_children_cont
+
+. 
+. xtreg has2plus c.post2016##c.parent_sibsize i.year ///
+>     if !missing(has2plus) & !missing(parent_sibsize), ///
+>     fe vce(cluster pid)
+note: parent_sibsize omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2003                                         min =          1
+     Between = 0.0903                                         avg =        4.5
+     Overall = 0.0722                                         max =          7
+
+                                                F(7, 380)         =      16.95
+corr(u_i, Xb) = 0.0394                          Prob > F          =     0.0000
+
+                                                 (Std. err. adjusted for 381 clusters in pid)
+---------------------------------------------------------------------------------------------
+                            |               Robust
+                   has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+----------------------------+----------------------------------------------------------------
+                   post2016 |   .3512639   .0401458     8.75   0.000     .2723282    .4301997
+             parent_sibsize |          0  (omitted)
+                            |
+c.post2016#c.parent_sibsize |  -.0088524   .0106741    -0.83   0.407      -.02984    .0121352
+                            |
+                       year |
+                      2012  |   .0961101   .0202435     4.75   0.000     .0563068    .1359134
+                      2014  |   .1532674   .0230686     6.64   0.000     .1079093    .1986255
+                      2016  |  -.1730818   .0269594    -6.42   0.000    -.2260901   -.1200736
+                      2018  |  -.0499294   .0186744    -2.67   0.008    -.0866475   -.0132113
+                      2020  |   .0129246   .0168188     0.77   0.443     -.020145    .0459942
+                      2022  |          0  (omitted)
+                            |
+                      _cons |   .2490724   .0182273    13.66   0.000     .2132334    .2849115
+----------------------------+----------------------------------------------------------------
+                    sigma_u |  .41430434
+                    sigma_e |  .24270852
+                        rho |  .74449787   (fraction of variance due to u_i)
+---------------------------------------------------------------------------------------------
+
+. estimates store did_has2plus_cont
+
+. 
+. *******************************************************
+. * 7. Father vs Mother separate specifications
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "FATHER VS MOTHER"
+FATHER VS MOTHER
+
+. display "=================================================="
+==================================================
+
+. 
+. * Father only
+. xtreg children i.post2016##i.father_multisib i.year ///
+>     if !missing(children) & !missing(father_multisib), ///
+>     fe vce(cluster pid)
+note: 1.father_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,588
+Group variable: pid                             Number of groups  =        350
+
+R-squared:                                      Obs per group:
+     Within  = 0.2609                                         min =          1
+     Between = 0.0718                                         avg =        4.5
+     Overall = 0.0834                                         max =          7
+
+                                                F(7, 349)         =      23.34
+corr(u_i, Xb) = 0.0304                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 350 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |   .6530194   .1103438     5.92   0.000      .435997    .8700418
+       1.father_multisib |          0  (omitted)
+                         |
+post2016#father_multisib |
+                    1 1  |  -.0821262   .1039855    -0.79   0.430    -.2866432    .1223908
+                         |
+                    year |
+                   2012  |   .1844198    .030934     5.96   0.000     .1235792    .2452604
+                   2014  |   .3031692   .0352499     8.60   0.000     .2338402    .3724982
+                   2016  |  -.2696966   .0432092    -6.24   0.000    -.3546798   -.1847134
+                   2018  |  -.0679839   .0334889    -2.03   0.043    -.1338494   -.0021184
+                   2020  |    .137513   .0392712     3.50   0.001      .060275     .214751
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   1.055276   .0291742    36.17   0.000     .9978966    1.112655
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .73948285
+                 sigma_e |  .38563513
+                     rho |  .78619137   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_children_father
+
+. 
+. xtreg has2plus i.post2016##i.father_multisib i.year ///
+>     if !missing(has2plus) & !missing(father_multisib), ///
+>     fe vce(cluster pid)
+note: 1.father_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,588
+Group variable: pid                             Number of groups  =        350
+
+R-squared:                                      Obs per group:
+     Within  = 0.1982                                         min =          1
+     Between = 0.0805                                         avg =        4.5
+     Overall = 0.0686                                         max =          7
+
+                                                F(7, 349)         =      15.62
+corr(u_i, Xb) = 0.0339                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 350 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |   .3410361   .0690834     4.94   0.000      .205164    .4769083
+       1.father_multisib |          0  (omitted)
+                         |
+post2016#father_multisib |
+                    1 1  |  -.0129696   .0662971    -0.20   0.845    -.1433617    .1174225
+                         |
+                    year |
+                   2012  |   .0966553   .0213392     4.53   0.000     .0546856    .1386249
+                   2014  |   .1561057   .0244481     6.39   0.000     .1080215    .2041899
+                   2016  |  -.1638092   .0272908    -6.00   0.000    -.2174844    -.110134
+                   2018  |  -.0462541   .0185963    -2.49   0.013    -.0828291   -.0096791
+                   2020  |    .019647   .0168503     1.17   0.244    -.0134939    .0527879
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   .2579056   .0193057    13.36   0.000     .2199354    .2958758
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .41794344
+                 sigma_e |  .24365411
+                     rho |  .74634122   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_has2plus_father
+
+. 
+. * Mother only
+. xtreg children i.post2016##i.mother_multisib i.year ///
+>     if !missing(children) & !missing(mother_multisib), ///
+>     fe vce(cluster pid)
+note: 1.mother_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,658
+Group variable: pid                             Number of groups  =        366
+
+R-squared:                                      Obs per group:
+     Within  = 0.2542                                         min =          1
+     Between = 0.0685                                         avg =        4.5
+     Overall = 0.0802                                         max =          7
+
+                                                F(7, 365)         =      23.63
+corr(u_i, Xb) = 0.0361                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 366 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |   .6048424   .1034288     5.85   0.000     .4014512    .8082335
+       1.mother_multisib |          0  (omitted)
+                         |
+post2016#mother_multisib |
+                    1 1  |  -.0578746    .097279    -0.59   0.552    -.2491723    .1334232
+                         |
+                    year |
+                   2012  |   .1789495   .0298801     5.99   0.000     .1201907    .2377082
+                   2014  |   .2818637   .0329882     8.54   0.000      .216993    .3467344
+                   2016  |  -.2696134   .0419618    -6.43   0.000    -.3521306   -.1870961
+                   2018  |  -.0701661   .0324047    -2.17   0.031    -.1338894   -.0064428
+                   2020  |   .1383666   .0384668     3.60   0.000     .0627223    .2140109
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   1.058695   .0275202    38.47   0.000     1.004577    1.112813
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .74626662
+                 sigma_e |  .37699032
+                     rho |  .79668889   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_children_mother
+
+. 
+. xtreg has2plus i.post2016##i.mother_multisib i.year ///
+>     if !missing(has2plus) & !missing(mother_multisib), ///
+>     fe vce(cluster pid)
+note: 1.mother_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,658
+Group variable: pid                             Number of groups  =        366
+
+R-squared:                                      Obs per group:
+     Within  = 0.1913                                         min =          1
+     Between = 0.0862                                         avg =        4.5
+     Overall = 0.0680                                         max =          7
+
+                                                F(7, 365)         =      15.30
+corr(u_i, Xb) = 0.0422                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 366 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |   .3227017   .0636317     5.07   0.000     .1975709    .4478325
+       1.mother_multisib |          0  (omitted)
+                         |
+post2016#mother_multisib |
+                    1 1  |  -.0085759   .0608161    -0.14   0.888    -.1281699    .1110181
+                         |
+                    year |
+                   2012  |   .0921605   .0203234     4.53   0.000     .0521948    .1321261
+                   2014  |   .1372719   .0225966     6.07   0.000     .0928359    .1817078
+                   2016  |  -.1722825    .027477    -6.27   0.000    -.2263157   -.1182493
+                   2018  |  -.0466948   .0189416    -2.47   0.014    -.0839432   -.0094464
+                   2020  |   .0176603   .0170776     1.03   0.302    -.0159225    .0512432
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   .2557673   .0181733    14.07   0.000     .2200297    .2915049
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .41745256
+                 sigma_e |  .23919751
+                     rho |  .75282991   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_has2plus_mother
+
+. 
+. * Joint father + mother
+. xtreg children i.post2016##i.father_multisib ///
+>                i.post2016##i.mother_multisib ///
+>                i.year ///
+>     if !missing(children) & !missing(father_multisib) & !missing(mother_multisib), ///
+>     fe vce(cluster pid)
+note: 1.father_multisib omitted because of collinearity.
+note: 1.mother_multisib omitted because of collinearity.
+note: 1.post2016#1.mother_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,533
+Group variable: pid                             Number of groups  =        335
+
+R-squared:                                      Obs per group:
+     Within  = 0.2537                                         min =          1
+     Between = 0.0557                                         avg =        4.6
+     Overall = 0.0740                                         max =          7
+
+                                                F(7, 334)         =      21.91
+corr(u_i, Xb) = 0.0215                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 335 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |   .6537745   .1136487     5.75   0.000      .430217    .8773319
+       1.father_multisib |          0  (omitted)
+                         |
+post2016#father_multisib |
+                    1 1  |  -.1159557   .1072161    -1.08   0.280    -.3268597    .0949482
+                         |
+       1.mother_multisib |          0  (omitted)
+                         |
+post2016#mother_multisib |
+                    1 1  |          0  (omitted)
+                         |
+                    year |
+                   2012  |   .1721557   .0312253     5.51   0.000     .1107326    .2335788
+                   2014  |   .2803463   .0343574     8.16   0.000     .2127621    .3479305
+                   2016  |  -.2644199   .0438103    -6.04   0.000    -.3505989   -.1782409
+                   2018  |  -.0696877   .0335594    -2.08   0.039    -.1357021   -.0036733
+                   2020  |   .1442333   .0401341     3.59   0.000     .0652858    .2231809
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   1.071977   .0286396    37.43   0.000      1.01564    1.128313
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .74231262
+                 sigma_e |  .37800736
+                     rho |   .7940828   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_children_joint
+
+. 
+. xtreg has2plus i.post2016##i.father_multisib ///
+>                i.post2016##i.mother_multisib ///
+>                i.year ///
+>     if !missing(has2plus) & !missing(father_multisib) & !missing(mother_multisib), ///
+>     fe vce(cluster pid)
+note: 1.father_multisib omitted because of collinearity.
+note: 1.mother_multisib omitted because of collinearity.
+note: 1.post2016#1.mother_multisib omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,533
+Group variable: pid                             Number of groups  =        335
+
+R-squared:                                      Obs per group:
+     Within  = 0.1893                                         min =          1
+     Between = 0.0696                                         avg =        4.6
+     Overall = 0.0612                                         max =          7
+
+                                                F(7, 334)         =      14.04
+corr(u_i, Xb) = 0.0290                          Prob > F          =     0.0000
+
+                                              (Std. err. adjusted for 335 clusters in pid)
+------------------------------------------------------------------------------------------
+                         |               Robust
+                has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------------------+----------------------------------------------------------------
+              1.post2016 |    .338679   .0715354     4.73   0.000     .1979622    .4793958
+       1.father_multisib |          0  (omitted)
+                         |
+post2016#father_multisib |
+                    1 1  |  -.0306897   .0687408    -0.45   0.656    -.1659093    .1045298
+                         |
+       1.mother_multisib |          0  (omitted)
+                         |
+post2016#mother_multisib |
+                    1 1  |          0  (omitted)
+                         |
+                    year |
+                   2012  |   .0916773   .0214299     4.28   0.000     .0495227     .133832
+                   2014  |   .1382261   .0239272     5.78   0.000     .0911591    .1852931
+                   2016  |  -.1636095   .0278474    -5.88   0.000    -.2183879   -.1088311
+                   2018  |   -.043184   .0190055    -2.27   0.024    -.0805695   -.0057985
+                   2020  |   .0236813    .017107     1.38   0.167    -.0099697    .0573323
+                   2022  |          0  (omitted)
+                         |
+                   _cons |   .2657682   .0192462    13.81   0.000     .2279091    .3036273
+-------------------------+----------------------------------------------------------------
+                 sigma_u |  .42205955
+                 sigma_e |  .23977441
+                     rho |  .75600417   (fraction of variance due to u_i)
+------------------------------------------------------------------------------------------
+
+. estimates store did_has2plus_joint
+
+. 
+. *******************************************************
+. * 8. Robustness: alternative treatment thresholds
+. *    sib2 (>= 2) and sib3 (>= 3) as higher-bar alternatives to sib1
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "ROBUSTNESS: alternative thresholds (sib2, sib3)"
+ROBUSTNESS: alternative thresholds (sib2, sib3)
+
+. display "=================================================="
+==================================================
+
+. 
+. * sib2 robustness
+. xtreg children i.post2016##i.sib2 i.year ///
+>     if !missing(children) & !missing(sib2), ///
+>     fe vce(cluster pid)
+note: 1.sib2 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2615                                         min =          1
+     Between = 0.0822                                         avg =        4.5
+     Overall = 0.0879                                         max =          7
+
+                                                F(7, 380)         =      25.50
+corr(u_i, Xb) = 0.0411                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |   .5987824   .0610693     9.80   0.000     .4787063    .7188585
+       1.sib2 |          0  (omitted)
+              |
+post2016#sib2 |
+         1 1  |  -.0329265   .0579386    -0.57   0.570    -.1468469    .0809939
+              |
+         year |
+        2012  |   .1894205   .0296333     6.39   0.000     .1311546    .2476864
+        2014  |   .3021265   .0337981     8.94   0.000     .2356717    .3685813
+        2016  |  -.2749041   .0414732    -6.63   0.000    -.3564497   -.1933585
+        2018  |  -.0688563   .0325418    -2.12   0.035    -.1328408   -.0048718
+        2020  |   .1311482   .0380826     3.44   0.001     .0562692    .2060271
+        2022  |          0  (omitted)
+              |
+        _cons |    1.04403   .0279941    37.29   0.000     .9889875    1.099073
+--------------+----------------------------------------------------------------
+      sigma_u |  .74352106
+      sigma_e |  .38397368
+          rho |  .78945545   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_children_sib2
+
+. 
+. xtreg has2plus i.post2016##i.sib2 i.year ///
+>     if !missing(has2plus) & !missing(sib2), ///
+>     fe vce(cluster pid)
+note: 1.sib2 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.1996                                         min =          1
+     Between = 0.0940                                         avg =        4.5
+     Overall = 0.0738                                         max =          7
+
+                                                F(7, 380)         =      16.92
+corr(u_i, Xb) = 0.0437                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |   .3362753   .0377917     8.90   0.000     .2619683    .4105822
+       1.sib2 |          0  (omitted)
+              |
+post2016#sib2 |
+         1 1  |  -.0071261    .035312    -0.20   0.840    -.0765576    .0623054
+              |
+         year |
+        2012  |   .0964012   .0202286     4.77   0.000     .0566272    .1361752
+        2014  |   .1535543   .0230331     6.67   0.000      .108266    .1988426
+        2016  |  -.1726124   .0268853    -6.42   0.000    -.2254749   -.1197498
+        2018  |  -.0497817   .0186658    -2.67   0.008    -.0864828   -.0130806
+        2020  |   .0136406   .0167948     0.81   0.417    -.0193818     .046663
+        2022  |          0  (omitted)
+              |
+        _cons |   .2489946   .0182246    13.66   0.000     .2131609    .2848284
+--------------+----------------------------------------------------------------
+      sigma_u |  .41397501
+      sigma_e |  .24281645
+          rho |   .7440259   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_has2plus_sib2
+
+. 
+. * sib3 robustness
+. xtreg children i.post2016##i.sib3 i.year ///
+>     if !missing(children) & !missing(sib3), ///
+>     fe vce(cluster pid)
+note: 1.sib3 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2617                                         min =          1
+     Between = 0.0829                                         avg =        4.5
+     Overall = 0.0887                                         max =          7
+
+                                                F(7, 380)         =      25.79
+corr(u_i, Xb) = 0.0424                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |   .5932201     .05544    10.70   0.000     .4842124    .7022277
+       1.sib3 |          0  (omitted)
+              |
+post2016#sib3 |
+         1 1  |  -.0420464   .0653865    -0.64   0.521    -.1706111    .0865183
+              |
+         year |
+        2012  |    .189306   .0296791     6.38   0.000     .1309503    .2476618
+        2014  |   .3024506   .0337964     8.95   0.000     .2359992    .3689021
+        2016  |  -.2746637     .04136    -6.64   0.000    -.3559868   -.1933406
+        2018  |  -.0684334   .0324275    -2.11   0.035    -.1321933   -.0046735
+        2020  |   .1315585   .0379616     3.47   0.001     .0569174    .2061996
+        2022  |          0  (omitted)
+              |
+        _cons |   1.043915   .0279961    37.29   0.000     .9888687    1.098962
+--------------+----------------------------------------------------------------
+      sigma_u |  .74331451
+      sigma_e |  .38393127
+          rho |   .7893998   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_children_sib3
+
+. 
+. xtreg has2plus i.post2016##i.sib3 i.year ///
+>     if !missing(has2plus) & !missing(sib3), ///
+>     fe vce(cluster pid)
+note: 1.sib3 omitted because of collinearity.
+note: 2022.year omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.1999                                         min =          1
+     Between = 0.0932                                         avg =        4.5
+     Overall = 0.0736                                         max =          7
+
+                                                F(7, 380)         =      16.88
+corr(u_i, Xb) = 0.0430                          Prob > F          =     0.0000
+
+                                   (Std. err. adjusted for 381 clusters in pid)
+-------------------------------------------------------------------------------
+              |               Robust
+     has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+   1.post2016 |    .339024   .0352029     9.63   0.000     .2698072    .4082408
+       1.sib3 |          0  (omitted)
+              |
+post2016#sib3 |
+         1 1  |  -.0214318   .0374884    -0.57   0.568    -.0951425    .0522789
+              |
+         year |
+        2012  |   .0961931   .0202808     4.74   0.000     .0563165    .1360697
+        2014  |   .1535281    .023067     6.66   0.000     .1081732     .198883
+        2016  |  -.1727802   .0269731    -6.41   0.000    -.2258155   -.1197449
+        2018  |  -.0497878   .0186543    -2.67   0.008    -.0864665   -.0131092
+        2020  |   .0134703   .0168981     0.80   0.426    -.0197552    .0466958
+        2022  |          0  (omitted)
+              |
+        _cons |   .2490249   .0182443    13.65   0.000     .2131525    .2848973
+--------------+----------------------------------------------------------------
+      sigma_u |  .41402198
+      sigma_e |  .24276636
+          rho |  .74414768   (fraction of variance due to u_i)
+-------------------------------------------------------------------------------
+
+. estimates store did_has2plus_sib3
+
+. 
+. *******************************************************
+. * 9. Event-study style check (simple)
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "EVENT-STUDY STYLE CHECK"
+EVENT-STUDY STYLE CHECK
+
+. display "=================================================="
+==================================================
+
+. 
+. capture drop rel_year
+
+. gen rel_year = year - 2016
+
+. 
+. * Reference wave: 2014 (last pre-treatment wave)
+. * ib2014.year sets 2014 as the base category for wave FEs.
+. * Coefficients on earlier waves (2010, 2012) test pre-trends.
+. capture noisily xtreg children ib2014.year##i.sib1 ///
+>     if !missing(children) & !missing(sib1), ///
+>     fe vce(cluster pid)
+note: 1.sib1 omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.2622                                         min =          1
+     Between = 0.0822                                         avg =        4.5
+     Overall = 0.0895                                         max =          7
+
+                                                F(12, 380)        =      15.21
+corr(u_i, Xb) = 0.0438                          Prob > F          =     0.0000
+
+                                  (Std. err. adjusted for 381 clusters in pid)
+------------------------------------------------------------------------------
+             |               Robust
+    children | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        year |
+       2010  |  -.3386755   .1125946    -3.01   0.003     -.560062    -.117289
+       2012  |  -.0896884   .0696798    -1.29   0.199    -.2266945    .0473178
+       2016  |  -.0422869   .0605213    -0.70   0.485    -.1612855    .0767116
+       2018  |    .274813   .1074506     2.56   0.011     .0635408    .4860851
+       2020  |   .4403518   .1455206     3.03   0.003     .1542254    .7264782
+       2022  |    .361817   .1649245     2.19   0.029     .0375382    .6860958
+             |
+      1.sib1 |          0  (omitted)
+             |
+   year#sib1 |
+     2010 1  |   .0401872   .1180073     0.34   0.734    -.1918418    .2722162
+     2012 1  |  -.0257193   .0732048    -0.35   0.726    -.1696565    .1182178
+     2016 1  |   .0503092   .0619946     0.81   0.418    -.0715863    .1722046
+     2018 1  |  -.0726693   .1138938    -0.64   0.524    -.2966102    .1512716
+     2020 1  |   -.033562   .1547016    -0.22   0.828    -.3377403    .2706164
+     2022 1  |  -.0906495   .1709247    -0.53   0.596    -.4267262    .2454272
+             |
+       _cons |   1.346571   .0170099    79.16   0.000     1.313126    1.380016
+-------------+----------------------------------------------------------------
+     sigma_u |  .74337604
+     sigma_e |  .38451768
+         rho |  .78891946   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+
+. estimates store es_children_bin
+
+. 
+. capture noisily xtreg has2plus ib2014.year##i.sib1 ///
+>     if !missing(has2plus) & !missing(sib1), ///
+>     fe vce(cluster pid)
+note: 1.sib1 omitted because of collinearity.
+
+Fixed-effects (within) regression               Number of obs     =      1,713
+Group variable: pid                             Number of groups  =        381
+
+R-squared:                                      Obs per group:
+     Within  = 0.1999                                         min =          1
+     Between = 0.0933                                         avg =        4.5
+     Overall = 0.0740                                         max =          7
+
+                                                F(12, 380)        =       9.93
+corr(u_i, Xb) = 0.0442                          Prob > F          =     0.0000
+
+                                  (Std. err. adjusted for 381 clusters in pid)
+------------------------------------------------------------------------------
+             |               Robust
+    has2plus | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+        year |
+       2010  |  -.1388561   .0701992    -1.98   0.049    -.2768836   -.0008286
+       2012  |  -.0542866   .0579665    -0.94   0.350    -.1682617    .0596886
+       2016  |  -.0159137    .038116    -0.42   0.677    -.0908585    .0590311
+       2018  |   .1495904   .0862546     1.73   0.084    -.0200058    .3191865
+       2020  |   .2067256   .1041867     1.98   0.048      .001871    .4115803
+       2022  |   .1675246   .1053079     1.59   0.112    -.0395345    .3745837
+             |
+      1.sib1 |          0  (omitted)
+             |
+   year#sib1 |
+     2010 1  |  -.0167504   .0743444    -0.23   0.822    -.1629284    .1294276
+     2012 1  |  -.0032414   .0600766    -0.05   0.957    -.1213655    .1148828
+     2016 1  |   .0242407   .0389958     0.62   0.535     -.052434    .1009153
+     2018 1  |  -.0230487   .0894996    -0.26   0.797     -.199025    .1529277
+     2020 1  |  -.0157243   .1082573    -0.15   0.885    -.2285828    .1971341
+     2022 1  |   .0113603   .1090312     0.10   0.917    -.2030197    .2257403
+             |
+       _cons |   .4026844   .0113838    35.37   0.000     .3803014    .4250675
+-------------+----------------------------------------------------------------
+     sigma_u |   .4140974
+     sigma_e |  .24323204
+         rho |  .74348676   (fraction of variance due to u_i)
+------------------------------------------------------------------------------
+
+. estimates store es_has2plus_bin
+
+. 
+. *******************************************************
+. * 10. Export regression tables
+. *******************************************************
+. display "=================================================="
+==================================================
+
+. display "EXPORT RESULTS"
+EXPORT RESULTS
+
+. display "=================================================="
+==================================================
+
+. 
+. capture which esttab
+
+. if _rc == 0 {
+. 
+.     esttab did_children_bin did_children_cont ///
+>            did_children_father did_children_mother did_children_joint ///
+>            did_children_sib3 ///
+>         using "$OUT/did_children_results.rtf", replace ///
+>         b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) ///
+>         title("DiD Results: Outcome = Number of Children") ///
+>         label compress
+. 
+.     esttab did_has2plus_bin did_has2plus_cont ///
+>            did_has2plus_father did_has2plus_mother did_has2plus_joint ///
+>            did_has2plus_sib3 ///
+>         using "$OUT/did_has2plus_results.rtf", replace ///
+>         b(%9.3f) se(%9.3f) star(* 0.10 ** 0.05 *** 0.01) ///
+>         title("DiD Results: Outcome = Has 2+ Children") ///
+>         label compress
+. }
+
+. else {
+.     display "esttab not installed; skipping table export."
+esttab not installed; skipping table export.
+. }
+
+. 
+. *******************************************************
+. * 11. Save enriched analysis panel
+. *******************************************************
+. save "$OUT/did_panel_analysis_ready.dta", replace
+file /Users/huy/cfps_fertility_project/output/did_panel_analysis_ready.dta saved
+
+. 
+. display "=================================================="
+==================================================
+
+. display "05_analysis.do complete."
+05_analysis.do complete.
+
+. display "=================================================="
+==================================================
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/05_analysis.log
+  log type:  text
+ closed on:  24 Apr 2026, 06:13:55
+---------------------------------------------------------------------------------------------------------------------

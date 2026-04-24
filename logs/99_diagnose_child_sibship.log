@@ -1,0 +1,889 @@
+---------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/99_diagnose_child_sibship.log
+  log type:  text
+ opened on:  24 Apr 2026, 01:07:04
+
+. 
+. display "=================================================="
+==================================================
+
+. display " CHILD SIBSHIP DIAGNOSTIC"
+ CHILD SIBSHIP DIAGNOSTIC
+
+. display " $(c(current_date)) $(c(current_time))"
+ $(c(current_date)) $(c(current_time))
+
+. display "=================================================="
+==================================================
+
+. 
+. *======================================================*
+. * STEP 1  Build qb1 lookup from 2010 adult
+. *======================================================*
+. 
+. display _newline "---------- STEP 1: Build qb1 lookup ----------"
+
+---------- STEP 1: Build qb1 lookup ----------
+
+. 
+. use pid qb1 using "$RAW/2010/cfps2010adult_201906.dta", clear
+
+. 
+. replace qb1 = . if qb1 < 0
+(415 real changes made, 415 to missing)
+
+. replace qb1 = . if inlist(qb1, 77, 78, 79)
+(0 real changes made)
+
+. drop if missing(pid) | pid < `pid_min'
+(0 observations deleted)
+
+. 
+. sort pid qb1
+
+. by pid: keep if _n == 1
+(0 observations deleted)
+
+. isid pid
+
+. 
+. local N_lookup = _N
+
+. count if !missing(qb1)
+  33,185
+
+. local n_qb1_valid = r(N)
+
+. display "  2010 adult lookup: `N_lookup' unique pids"
+  2010 adult lookup: 33600 unique pids
+
+. display "  qb1 non-missing:   `n_qb1_valid' (" %5.1f `n_qb1_valid'/`N_lookup'*100 "%)"
+  qb1 non-missing:   33185 ( 98.8%)
+
+. display "  qb1 missing:       " (`N_lookup' - `n_qb1_valid') ///
+>     " (" %5.1f (`N_lookup'-`n_qb1_valid')/`N_lookup'*100 "%)"
+  qb1 missing:       415 (  1.2%)
+
+. 
+. tempfile qb1_lookup
+
+. save `qb1_lookup'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. 
+. *======================================================*
+. * STEP 2  Load 2012 child file — restrict to wka202
+. *======================================================*
+. 
+. display _newline "---------- STEP 2: Load child sample ----------"
+
+---------- STEP 2: Load child sample ----------
+
+. 
+. use "$RAW/2012/cfps2012child_201906.dta", clear
+
+. 
+. * Restrict to children who answered wka202
+. replace wka202 = . if wka202 < 0
+(5,816 real changes made, 5,816 to missing)
+
+. keep if !missing(wka202)
+(7,390 observations deleted)
+
+. drop if missing(pid) | pid < `pid_min'
+(0 observations deleted)
+
+. 
+. * Validate parent pid variables exist
+. foreach pvar in pid_f pid_m {
+  2.     capture confirm variable `pvar'
+  3.     if _rc {
+  4.         display as error "  ERROR: `pvar' not found — check variable names in child file"
+  5.         error 1
+  6.     }
+  7. }
+
+. 
+. * Recode invalid parent pids
+. replace pid_f = . if pid_f < `pid_min'
+(165 real changes made, 165 to missing)
+
+. replace pid_m = . if pid_m < `pid_min'
+(186 real changes made, 186 to missing)
+
+. 
+. local N_child = _N
+
+. display "  Children with valid pid & non-missing wka202: `N_child'"
+  Children with valid pid & non-missing wka202: 2528
+
+. 
+. count if !missing(pid_f)
+  2,363
+
+. local n_has_f = r(N)
+
+. count if !missing(pid_m)
+  2,342
+
+. local n_has_m = r(N)
+
+. count if !missing(pid_f) & !missing(pid_m)
+  2,297
+
+. local n_has_both = r(N)
+
+. count if  missing(pid_f) &  missing(pid_m)
+  120
+
+. local n_has_none = r(N)
+
+. 
+. display "  Has valid pid_f:        `n_has_f' (" %5.1f `n_has_f'/`N_child'*100 "%)"
+  Has valid pid_f:        2363 ( 93.5%)
+
+. display "  Has valid pid_m:        `n_has_m' (" %5.1f `n_has_m'/`N_child'*100 "%)"
+  Has valid pid_m:        2342 ( 92.6%)
+
+. display "  Has both pid_f & pid_m: `n_has_both'"
+  Has both pid_f & pid_m: 2297
+
+. display "  Missing both pids:      `n_has_none' (cannot recover parental sib for these)"
+  Missing both pids:      120 (cannot recover parental sib for these)
+
+. 
+. keep pid pid_f pid_m wka202
+
+. tempfile child_base
+
+. save `child_base'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000002 saved as .dta format
+
+. 
+. *======================================================*
+. * STEP 3  Coverage check: how many parent pids are in 2010?
+. *======================================================*
+. 
+. display _newline "---------- STEP 3: Parent PID coverage in 2010 adult ----------"
+
+---------- STEP 3: Parent PID coverage in 2010 adult ----------
+
+. 
+. * --- Father ---
+. preserve
+
+. keep pid_f
+
+. drop if missing(pid_f)
+(165 observations deleted)
+
+. duplicates drop pid_f, force
+
+Duplicates in terms of pid_f
+
+(258 observations deleted)
+
+. rename pid_f pid          // match key name in qb1_lookup
+
+. 
+. merge 1:1 pid using `qb1_lookup', keep(master match) gen(_mf)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           511
+        from master                       511  (_mf==1)
+        from using                          0  (_mf==2)
+
+    Matched                             1,594  (_mf==3)
+    -----------------------------------------
+
+. 
+. count
+  2,105
+
+. local n_f_unique = r(N)
+
+. count if _mf == 3
+  1,594
+
+. local n_f_in2010 = r(N)
+
+. count if _mf == 3 & !missing(qb1)
+  1,584
+
+. local n_f_qb1ok  = r(N)
+
+. count if _mf == 3 &  missing(qb1)
+  10
+
+. local n_f_qb1mis = r(N)
+
+. count if _mf == 1
+  511
+
+. local n_f_not2010 = r(N)
+
+. 
+. display "  Unique father pids in child file:          `n_f_unique'"
+  Unique father pids in child file:          2105
+
+. display "  Found in 2010 adult:                       `n_f_in2010' (" %5.1f `n_f_in2010'/`n_f_unique'*100 "%)"
+  Found in 2010 adult:                       1594 ( 75.7%)
+
+. display "    → qb1 non-missing (usable):              `n_f_qb1ok'"
+    → qb1 non-missing (usable):              1584
+
+. display "    → qb1 missing (in 2010 but no answer):  `n_f_qb1mis'"
+    → qb1 missing (in 2010 but no answer):  10
+
+. display "  NOT found in 2010 adult:                   `n_f_not2010' (" %5.1f `n_f_not2010'/`n_f_unique'*100 "%)"
+  NOT found in 2010 adult:                   511 ( 24.3%)
+
+. restore
+
+. 
+. * --- Mother ---
+. preserve
+
+. keep pid_m
+
+. drop if missing(pid_m)
+(186 observations deleted)
+
+. duplicates drop pid_m, force
+
+Duplicates in terms of pid_m
+
+(258 observations deleted)
+
+. rename pid_m pid          // match key name in qb1_lookup
+
+. 
+. merge 1:1 pid using `qb1_lookup', keep(master match) gen(_mm)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           325
+        from master                       325  (_mm==1)
+        from using                          0  (_mm==2)
+
+    Matched                             1,759  (_mm==3)
+    -----------------------------------------
+
+. 
+. count
+  2,084
+
+. local n_m_unique = r(N)
+
+. count if _mm == 3
+  1,759
+
+. local n_m_in2010 = r(N)
+
+. count if _mm == 3 & !missing(qb1)
+  1,745
+
+. local n_m_qb1ok  = r(N)
+
+. count if _mm == 3 &  missing(qb1)
+  14
+
+. local n_m_qb1mis = r(N)
+
+. count if _mm == 1
+  325
+
+. local n_m_not2010 = r(N)
+
+. 
+. display "  Unique mother pids in child file:          `n_m_unique'"
+  Unique mother pids in child file:          2084
+
+. display "  Found in 2010 adult:                       `n_m_in2010' (" %5.1f `n_m_in2010'/`n_m_unique'*100 "%)"
+  Found in 2010 adult:                       1759 ( 84.4%)
+
+. display "    → qb1 non-missing (usable):              `n_m_qb1ok'"
+    → qb1 non-missing (usable):              1745
+
+. display "    → qb1 missing (in 2010 but no answer):  `n_m_qb1mis'"
+    → qb1 missing (in 2010 but no answer):  14
+
+. display "  NOT found in 2010 adult:                   `n_m_not2010' (" %5.1f `n_m_not2010'/`n_m_unique'*100 "%)"
+  NOT found in 2010 adult:                   325 ( 15.6%)
+
+. restore
+
+. 
+. *======================================================*
+. * STEP 4  Reconstruct: merge father_sib onto children
+. *======================================================*
+. 
+. display _newline "---------- STEP 4: Merge father_sib ----------"
+
+---------- STEP 4: Merge father_sib ----------
+
+. 
+. use `child_base', clear
+
+. 
+. preserve
+
+. use `qb1_lookup', clear
+
+. rename pid pid_f
+
+. rename qb1 father_sib
+
+. tempfile father_lookup
+
+. save `father_lookup'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000006 saved as .dta format
+
+. restore
+
+. 
+. merge m:1 pid_f using `father_lookup', keep(master match) gen(_mf)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           750
+        from master                       750  (_mf==1)
+        from using                          0  (_mf==2)
+
+    Matched                             1,778  (_mf==3)
+    -----------------------------------------
+
+. 
+. count if _mf == 3 & !missing(father_sib)
+  1,767
+
+. local n_f_got = r(N)
+
+. count if _mf == 3 &  missing(father_sib)
+  11
+
+. local n_f_matched_nomiss = r(N)
+
+. count if _mf == 1
+  750
+
+. local n_f_nolink = r(N)
+
+. count if  missing(pid_f)
+  165
+
+. local n_f_nopid = r(N)
+
+. 
+. display "  pid_f → father_sib obtained:              `n_f_got'"
+  pid_f → father_sib obtained:              1767
+
+. display "  pid_f matched but father_sib still .:     `n_f_matched_nomiss' (qb1 was . in 2010)"
+  pid_f matched but father_sib still .:     11 (qb1 was . in 2010)
+
+. display "  pid_f not found in 2010 adult:            `n_f_nolink'"
+  pid_f not found in 2010 adult:            750
+
+. display "  pid_f was missing (no father link):       `n_f_nopid'"
+  pid_f was missing (no father link):       165
+
+. display "  father_sib coverage: `n_f_got'/`N_child' = " %5.1f `n_f_got'/`N_child'*100 "%"
+  father_sib coverage: 1767/2528 =  69.9%
+
+. 
+. drop _mf
+
+. tempfile child_with_father
+
+. save `child_with_father'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000007 saved as .dta format
+
+. 
+. *======================================================*
+. * STEP 5  Reconstruct: merge mother_sib onto children
+. *======================================================*
+. 
+. display _newline "---------- STEP 5: Merge mother_sib ----------"
+
+---------- STEP 5: Merge mother_sib ----------
+
+. 
+. preserve
+
+. use `qb1_lookup', clear
+
+. rename pid pid_m
+
+. rename qb1 mother_sib
+
+. tempfile mother_lookup
+
+. save `mother_lookup'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000009 saved as .dta format
+
+. restore
+
+. 
+. merge m:1 pid_m using `mother_lookup', keep(master match) gen(_mm)
+(label qb1 already defined)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                           559
+        from master                       559  (_mm==1)
+        from using                          0  (_mm==2)
+
+    Matched                             1,969  (_mm==3)
+    -----------------------------------------
+
+. 
+. count if _mm == 3 & !missing(mother_sib)
+  1,954
+
+. local n_m_got = r(N)
+
+. count if _mm == 3 &  missing(mother_sib)
+  15
+
+. local n_m_matched_nomiss = r(N)
+
+. count if _mm == 1
+  559
+
+. local n_m_nolink = r(N)
+
+. count if  missing(pid_m)
+  186
+
+. local n_m_nopid = r(N)
+
+. 
+. display "  pid_m → mother_sib obtained:              `n_m_got'"
+  pid_m → mother_sib obtained:              1954
+
+. display "  pid_m matched but mother_sib still .:     `n_m_matched_nomiss' (qb1 was . in 2010)"
+  pid_m matched but mother_sib still .:     15 (qb1 was . in 2010)
+
+. display "  pid_m not found in 2010 adult:            `n_m_nolink'"
+  pid_m not found in 2010 adult:            559
+
+. display "  pid_m was missing (no mother link):       `n_m_nopid'"
+  pid_m was missing (no mother link):       186
+
+. display "  mother_sib coverage: `n_m_got'/`N_child' = " %5.1f `n_m_got'/`N_child'*100 "%"
+  mother_sib coverage: 1954/2528 =  77.3%
+
+. 
+. drop _mm
+
+. 
+. *======================================================*
+. * STEP 6  Construct treatment variables
+. *======================================================*
+. 
+. display _newline "---------- STEP 6: Treatment variables ----------"
+
+---------- STEP 6: Treatment variables ----------
+
+. 
+. gen father_multisib = .
+(2,528 missing values generated)
+
+. replace father_multisib = 0 if father_sib == 0
+(89 real changes made)
+
+. replace father_multisib = 1 if father_sib >= 1 & !missing(father_sib)
+(1,678 real changes made)
+
+. label variable father_multisib "Father had ≥1 sibling (0/1/.)"
+
+. 
+. gen mother_multisib = .
+(2,528 missing values generated)
+
+. replace mother_multisib = 0 if mother_sib == 0
+(60 real changes made)
+
+. replace mother_multisib = 1 if mother_sib >= 1 & !missing(mother_sib)
+(1,894 real changes made)
+
+. label variable mother_multisib "Mother had ≥1 sibling (0/1/.)"
+
+. 
+. gen parent_multisib = .
+(2,528 missing values generated)
+
+. replace parent_multisib = 1 if father_multisib == 1 | mother_multisib == 1
+(2,116 real changes made)
+
+. replace parent_multisib = 0 if father_multisib == 0 & mother_multisib == 0
+(11 real changes made)
+
+. label variable parent_multisib "Any parent had ≥1 sibling — OR logic (0/1/.)"
+
+. 
+. gen parent_sibsize = max(father_sib, mother_sib)
+(376 missing values generated)
+
+. label variable parent_sibsize "Max of father_sib and mother_sib"
+
+. 
+. tab parent_multisib, missing
+
+ Any parent |
+     had ≥1 |
+  sibling — |
+   OR logic |
+    (0/1/.) |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |         11        0.44        0.44
+          1 |      2,116       83.70       84.14
+          . |        401       15.86      100.00
+------------+-----------------------------------
+      Total |      2,528      100.00
+
+. 
+. *======================================================*
+. * STEP 7  Final summary report
+. *======================================================*
+. 
+. display _newline "=================================================="
+
+==================================================
+
+. display " FINAL SUMMARY REPORT"
+ FINAL SUMMARY REPORT
+
+. display "=================================================="
+==================================================
+
+. 
+. display _newline "  Total child sample (wka202 valid):           `N_child'"
+
+  Total child sample (wka202 valid):           2528
+
+. 
+. count if !missing(father_sib)
+  1,767
+
+. local nf = r(N)
+
+. count if !missing(mother_sib)
+  1,954
+
+. local nm = r(N)
+
+. count if !missing(father_sib) | !missing(mother_sib)
+  2,152
+
+. local nat_least_one = r(N)
+
+. count if !missing(parent_multisib)
+  2,127
+
+. local npm = r(N)
+
+. 
+. display "  father_sib non-missing:                    `nf' (" %5.1f `nf'/`N_child'*100 "%)"
+  father_sib non-missing:                    1767 ( 69.9%)
+
+. display "  mother_sib non-missing:                    `nm' (" %5.1f `nm'/`N_child'*100 "%)"
+  mother_sib non-missing:                    1954 ( 77.3%)
+
+. display "  At least one parent sib non-missing:       `nat_least_one' (" %5.1f `nat_least_one'/`N_child'*100 "%)"
+  At least one parent sib non-missing:       2152 ( 85.1%)
+
+. display "  parent_multisib resolved (0 or 1):         `npm' (" %5.1f `npm'/`N_child'*100 "%)"
+  parent_multisib resolved (0 or 1):         2127 ( 84.1%)
+
+. 
+. display _newline "  Residual missing analysis:"
+
+  Residual missing analysis:
+
+. count if missing(pid_f) & missing(pid_m)
+  120
+
+. display "    Missing both parent pids:                " r(N) ///
+>     " → child file had no parent links"
+    Missing both parent pids:                120 → child file had no parent links
+
+. count if !missing(pid_f) & missing(father_sib) & !missing(pid_m) & missing(mother_sib)
+  217
+
+. display "    Has both pids but both sib missing:      " r(N) ///
+>     " → parents not in 2010 adult OR qb1 missing"
+    Has both pids but both sib missing:      217 → parents not in 2010 adult OR qb1 missing
+
+. count if missing(father_sib) & !missing(mother_sib)
+  385
+
+. display "    father_sib missing, mother_sib present:  " r(N)
+    father_sib missing, mother_sib present:  385
+
+. count if !missing(father_sib) & missing(mother_sib)
+  198
+
+. display "    mother_sib present, father_sib missing:  " r(N)
+    mother_sib present, father_sib missing:  198
+
+. 
+. *======================================================*
+. * STEP 8  Save
+. *======================================================*
+. 
+. display _newline "---------- STEP 8: Save ----------"
+
+---------- STEP 8: Save ----------
+
+. 
+. label variable pid            "Child PID"
+
+. label variable pid_f          "Father PID [orig: pid_f]"
+
+. label variable pid_m          "Mother PID [orig: pid_m]"
+
+. label variable wka202         "Ideal number of children [orig: wka202, 2012 child]"
+
+. label variable father_sib     "Father's sibling count [qb1, 2010 adult]"
+
+. label variable mother_sib     "Mother's sibling count [qb1, 2010 adult]"
+
+. 
+. order pid pid_f pid_m wka202 ///
+>       father_sib mother_sib father_multisib mother_multisib ///
+>       parent_multisib parent_sibsize
+
+. 
+. compress
+  variable father_multisib was float now byte
+  variable mother_multisib was float now byte
+  variable parent_multisib was float now byte
+  variable parent_sibsize was float now byte
+  variable pid was double now long
+  variable pid_f was double now long
+  variable pid_m was double now long
+  variable wka202 was double now byte
+  variable father_sib was double now byte
+  variable mother_sib was double now byte
+  (113,760 bytes saved)
+
+. save "$CONS/child_parentsib_2012.dta", replace
+file /Users/huy/cfps_fertility_project/data/constructed/child_parentsib_2012.dta saved
+
+. display "  Saved: $CONS/child_parentsib_2012.dta  (N = `N_child')"
+  Saved: /Users/huy/cfps_fertility_project/data/constructed/child_parentsib_2012.dta  (N = 2528)
+
+. 
+. *======================================================*
+. * STEP 9  Panel follow-up: how many 2012 children
+. *         also answered qka205 (fertility intentions)
+. *         in the 2020 adult questionnaire?
+. *
+. *   Link: pid (shared across all CFPS databases)
+. *   2012 child sample aged 10–15 → aged 18–23 in 2020
+. *======================================================*
+. 
+. display _newline "---------- STEP 9: 2020 follow-up (qka205) ----------"
+
+---------- STEP 9: 2020 follow-up (qka205) ----------
+
+. 
+. * Build qka205 lookup from 2020 adult file
+. preserve
+
+. use pid qka205 using "$RAW/2020/cfps2020person_202306.dta", clear
+
+. 
+. replace qka205 = . if qka205 < 0
+(16,023 real changes made, 16,023 to missing)
+
+. replace qka205 = . if inlist(qka205, 77, 78, 79)
+(0 real changes made)
+
+. drop if missing(pid) | pid < 100000000
+(0 observations deleted)
+
+. 
+. sort pid
+
+. by pid: keep if _n == 1
+(0 observations deleted)
+
+. isid pid
+
+. 
+. local N_2020 = _N
+
+. count if !missing(qka205)
+  9,059
+
+. display "  2020 adult file: `N_2020' unique pids"
+  2020 adult file: 28530 unique pids
+
+. display "  qka205 non-missing in 2020 adult: " r(N)
+  qka205 non-missing in 2020 adult: 9059
+
+. 
+. tempfile qka205_lookup
+
+. save `qka205_lookup'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000b saved as .dta format
+
+. restore
+
+. 
+. * Merge onto the 2012 child sample (still in memory)
+. merge 1:1 pid using `qka205_lookup', keep(master match) gen(_m2020)
+(variable pid was long, now double to accommodate using data's values)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         1,090
+        from master                     1,090  (_m2020==1)
+        from using                          0  (_m2020==2)
+
+    Matched                             1,438  (_m2020==3)
+    -----------------------------------------
+
+. 
+. * Coverage report
+. count if _m2020 == 3
+  1,438
+
+. local n_found_2020 = r(N)
+
+. count if _m2020 == 3 & !missing(qka205)
+  64
+
+. local n_qka205_valid = r(N)
+
+. count if _m2020 == 3 & missing(qka205)
+  1,374
+
+. local n_qka205_miss  = r(N)
+
+. count if _m2020 == 1
+  1,090
+
+. local n_not_2020 = r(N)
+
+. 
+. display _newline "  2012 child sample (wka202 valid):           `N_child'"
+
+  2012 child sample (wka202 valid):           2528
+
+. display "  Found in 2020 adult questionnaire:          `n_found_2020' (" ///
+>     %5.1f `n_found_2020'/`N_child'*100 "%)"
+  Found in 2020 adult questionnaire:          1438 ( 56.9%)
+
+. display "    → qka205 non-missing (usable):            `n_qka205_valid' (" ///
+>     %5.1f `n_qka205_valid'/`N_child'*100 "%)"
+    → qka205 non-missing (usable):            64 (  2.5%)
+
+. display "    → qka205 missing (in 2020 but no answer): `n_qka205_miss'"
+    → qka205 missing (in 2020 but no answer): 1374
+
+. display "  Not in 2020 adult at all:                   `n_not_2020' (" ///
+>     %5.1f `n_not_2020'/`N_child'*100 "%)"
+  Not in 2020 adult at all:                   1090 ( 43.1%)
+
+. 
+. * Cross-tab: wka202 (2012) vs qka205 (2020) for those with both
+. display _newline "  Distribution of qka205 among re-interviewed children:"
+
+  Distribution of qka205 among re-interviewed children:
+
+. tab qka205 if _m2020 == 3, missing
+
+     未来两 |
+     年生育 |
+       意愿 |      Freq.     Percent        Cum.
+------------+-----------------------------------
+         否 |         34        2.36        2.36
+         是 |         30        2.09        4.45
+          . |      1,374       95.55      100.00
+------------+-----------------------------------
+      Total |      1,438      100.00
+
+. 
+. * Cross-tab with parent treatment
+. display _newline "  qka205 availability by parent_multisib:"
+
+  qka205 availability by parent_multisib:
+
+. tab parent_multisib _m2020, missing row
+
++----------------+
+| Key            |
+|----------------|
+|   frequency    |
+| row percentage |
++----------------+
+
+Any parent |
+    had ≥1 |
+   sibling |
+      — OR | Matching result from
+     logic |         merge
+   (0/1/.) | Master on  Matched ( |     Total
+-----------+----------------------+----------
+         0 |         4          7 |        11 
+           |     36.36      63.64 |    100.00 
+-----------+----------------------+----------
+         1 |       873      1,243 |     2,116 
+           |     41.26      58.74 |    100.00 
+-----------+----------------------+----------
+         . |       213        188 |       401 
+           |     53.12      46.88 |    100.00 
+-----------+----------------------+----------
+     Total |     1,090      1,438 |     2,528 
+           |     43.12      56.88 |    100.00 
+
+. 
+. drop _m2020
+
+. 
+. * Label and add to saved file
+. label variable qka205 "Fertility intentions next 2 yrs [orig: qka205, 2020 adult]"
+
+. 
+. display _newline "---------- Re-saving with qka205 ----------"
+
+---------- Re-saving with qka205 ----------
+
+. compress
+  variable pid was double now long
+  variable qka205 was double now byte
+  (27,808 bytes saved)
+
+. save "$CONS/child_parentsib_2012.dta", replace
+file /Users/huy/cfps_fertility_project/data/constructed/child_parentsib_2012.dta saved
+
+. display "  Saved: $CONS/child_parentsib_2012.dta  (now includes qka205)"
+  Saved: /Users/huy/cfps_fertility_project/data/constructed/child_parentsib_2012.dta  (now includes qka205)
+
+. 
+. display "=================================================="
+==================================================
+
+. display " 99_diagnose_child_sibship.do complete."
+ 99_diagnose_child_sibship.do complete.
+
+. display "=================================================="
+==================================================
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/99_diagnose_child_sibship.log
+  log type:  text
+ closed on:  24 Apr 2026, 01:07:05
+---------------------------------------------------------------------------------------------------------------------

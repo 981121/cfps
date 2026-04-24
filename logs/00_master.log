@@ -1,0 +1,5153 @@
+---------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/00_master.log
+  log type:  text
+ opened on:  24 Apr 2026, 06:08:16
+
+. 
+. display "========================================"
+========================================
+
+. display "Running CFPS Fertility Project Master Do"
+Running CFPS Fertility Project Master Do
+
+. display "Project root: $PROJ"
+Project root: /Users/huy/cfps_fertility_project
+
+. display "Start time: $S_DATE $S_TIME"
+Start time: 24 Apr 2026 06:08:16
+
+. display "========================================"
+========================================
+
+. 
+. *******************************************************
+. * 3. Check folders
+. *******************************************************
+. 
+. cap mkdir "$CLEAN"
+
+. cap mkdir "$CONS"
+
+. cap mkdir "$ANLY"
+
+. cap mkdir "$LOG"
+
+. cap mkdir "$OUT"
+
+. 
+. *******************************************************
+. * 4. Run wave-specific cleaning scripts  (7 waves: 2010–2022)
+. *******************************************************
+. 
+. display "Cleaning 2010 wave..."
+Cleaning 2010 wave...
+
+. do "$DO/01_clean_2010.do"
+
+. *******************************************************
+. * File:    01_clean_2010.do
+. * Purpose: Clean 2010 CFPS adult file
+. *          Output: data/clean/person_2010.dta
+. *                  docs/var_dictionary_2010.csv
+. *
+. * Source:  $RAW/2010/cfps2010adult_201906.dta
+. *          N = 33,600 observations
+. *
+. * VARIABLE MAPPING NOTES (2010-specific — verified 2026-04-20):
+. *
+. *   CONFIRMED mappings (safe to use):
+. *     pid, fid, provcd     — same names as later waves; no rename needed.
+. *                            Note: fid has NO wave suffix in 2010 (unlike fid12, fid14...).
+. *     gender               — same name as later waves
+. *     qa1y_best            → birth_year  [出生日期修正（年）]
+. *     cfps2010edu_best     → edu_level   [已完成最高学历]
+. *     cfps2010eduy_best    → years_schooling [受教育年限]
+. *     urban                → urban  [NBS城乡分类, same classification series as urban12..urban22]
+. *                            Note: no wave suffix in 2010 raw file.
+. *     income               → income  [个人收入, same as 2012-2018]
+. *     pid_f, pid_m         → father_pid, mother_pid  [in adult file directly, same as 2012/2014]
+. *     qa5code              → ethnicity  [民族成分编码 — actual numeric code,
+. *                            BETTER than 2018/2020/2022 where minzu is only a flag]
+. *     children             — counted from famconf code_a_c1..code_a_c10 (slot > 0)
+. *                            Source: cfps2010famconf_report_nat072016.dta
+. *                            code_a_c* > 0 counts ALL children (incl. non-CFPS-sample);
+. *                            pid_c* would miss children not enrolled in CFPS.
+. *
+. *   VERIFIED mappings (manually cross-validated 2026-04-20):
+. *
+. *   marital_status: qe1_best
+. *     Codes confirmed consistent with qe104 (2012) and qea0 (2014+).
+. *     Safe to pool across waves.
+. *
+. *   employ: qg3
+. *     Codes confirmed consistent with later waves' derived employ variable.
+. *     Safe to pool across waves.
+. *
+. *   urban: NBS classification confirmed to use same boundaries as urban12..urban22.
+. *
+. * Updated: 2026-04-20 (verified 2026-04-20)
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. local pid_min = 100000000
+
+. 
+. use "$RAW/2010/cfps2010adult_201906.dta", clear
+
+. 
+. display "Cleaning 2010 wave: N = " _N
+Cleaning 2010 wave: N = 33600
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 1. Keep core variables
+. * ─────────────────────────────────────────────────────────
+. * Note: fid and urban have no wave suffix in the 2010 raw file.
+. local keep_vars ""
+
+. foreach v in pid fid provcd gender qa1y_best ///
+>              cfps2010edu_best cfps2010eduy_best ///
+>              urban income ///
+>              qe1_best qg3 ///
+>              qa5code qb1 ///
+>              pid_f pid_m {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 2. Generate wave and year identifiers
+. * ─────────────────────────────────────────────────────────
+. gen wave = 2010
+
+. gen year = 2010
+
+. label variable wave "CFPS wave"
+
+. label variable year "Survey year"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3. Rename to standard names
+. * ─────────────────────────────────────────────────────────
+. 
+. * birth year — corrected version
+. rename qa1y_best birth_year
+
+. label variable birth_year "Birth year (corrected) [orig: qa1y_best]"
+
+. 
+. * education
+. rename cfps2010edu_best edu_level
+
+. label variable edu_level ///
+>     "Highest completed education level [orig: cfps2010edu_best]"
+
+. 
+. rename cfps2010eduy_best years_schooling
+
+. label variable years_schooling ///
+>     "Years of schooling [orig: cfps2010eduy_best]"
+
+. 
+. * urban — NBS classification; no wave suffix in 2010 raw
+. * The variable is already named 'urban', so no rename needed.
+. * But we label it to match the project convention.
+. label variable urban ///
+>     "Urban/rural: NBS classification [orig: urban; equiv. to urban12..urban22]"
+
+. 
+. * employment [UNCERTAIN-2: see header notes]
+. rename qg3 employ
+
+. label variable employ ///
+>     "Has job now (1/0/-8→.) [orig: qg3; verified consistent with later waves' employ]"
+
+. 
+. rename qe1_best marital_status
+
+. label variable marital_status ///
+>     "Current marital status [orig: qe1_best; verified consistent with qe104/qea0]"
+
+. 
+. * ethnicity — actual ethnicity code (better quality than 2018+)
+. rename qa5code ethnicity
+
+. label variable ethnicity ///
+>     "Ethnicity code [orig: qa5code; actual code, unlike 2018+ flag-only minzu]"
+
+. 
+. * parent PIDs — directly in adult file (like 2012/2014)
+. rename pid_f father_pid
+
+. label variable father_pid "Father PID [orig: pid_f; from adult file directly]"
+
+. 
+. rename pid_m mother_pid
+
+. label variable mother_pid "Mother PID [orig: pid_m; from adult file directly]"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 4. Recode sentinel values
+. *    Same sentinel set as 02_build_kinship_backbone.do:
+. *    negative values (-10 to -1) and small positive codes
+. *    (77/78/79) are treated as missing via pid < pid_min.
+. *    For non-PID variables, standard CFPS sentinels apply.
+. * ─────────────────────────────────────────────────────────
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(28,455 real changes made, 28,455 to missing)
+(27,495 real changes made, 27,495 to missing)
+
+. 
+. * Standard CFPS negative sentinel recodes for non-PID vars
+. * (−8 = 不适用, −9 = 缺失, −1 = 不知道, −2 = 拒绝)
+. foreach v in birth_year edu_level years_schooling urban ///
+>              income employ marital_status ethnicity {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * qb1: number of siblings (own sibling count, 2010 adult)
+. * Sentinels: negatives → .; 77/78/79 are common CFPS "don't know/refuse/N.A." codes
+. capture replace qb1 = . if qb1 < 0
+
+. capture replace qb1 = . if inlist(qb1, 77, 78, 79)
+
+. * Rename to own_sib for consistency with father_sib / mother_sib naming convention
+. capture rename qb1 own_sib
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 5. Count children from 2010 famconf (code_a_c1..code_a_c10)
+. *    Source: cfps2010famconf_report_nat072016.dta
+. *    Matches approach used in 2018–2022 waves.
+. *    The 2010 adult file does NOT contain code_a_c* columns.
+. * ─────────────────────────────────────────────────────────
+. tempfile childcount2010
+
+. 
+. preserve
+
+.     use "$RAW/2010/cfps2010famconf_report_nat072016.dta", clear
+
+. 
+.     * Use code_a_c* > 0 to count children.
+.     * code_a_c* is the household roster slot code: > 0 whenever a child occupies
+.     * that slot, regardless of whether the child is a CFPS sample member.
+.     * pid_c* would miss non-sample children (no PID assigned). Consistent with
+.     * the approach used in 2018/2020/2022 waves.
+.     gen children = 0
+
+.     forvalues j = 1/10 {
+  2.         capture confirm variable code_a_c`j'
+  3.         if !_rc {
+  4.             replace children = children + 1 ///
+>                 if !missing(code_a_c`j') & code_a_c`j' > 0
+  5.         }
+  6.     }
+(35,941 real changes made)
+(22,244 real changes made)
+(9,649 real changes made)
+(4,254 real changes made)
+(1,851 real changes made)
+(791 real changes made)
+(262 real changes made)
+(60 real changes made)
+(28 real changes made)
+(7 real changes made)
+
+.     label variable children ///
+>         "Number of children [counted from famconf code_a_c1..code_a_c10, slot > 0]"
+
+. 
+.     * Collapse to one row per pid (handles duplicate pid rows in famconf)
+.     drop if missing(pid) | pid < `pid_min'
+(0 observations deleted)
+
+.     collapse (max) children, by(pid)
+
+. 
+.     save `childcount2010'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. restore
+
+. 
+. * Merge children count back onto 2010 person file
+. * Use m:1 in case adult file has duplicate pid rows; childcount2010 is unique by pid
+. merge m:1 pid using `childcount2010', nogenerate keep(master match)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            33,600  
+    -----------------------------------------
+
+. 
+. * Respondents not in famconf get children = 0 (no child rows found)
+. replace children = 0 if missing(children)
+(0 real changes made)
+
+. 
+. gen has2plus = (children >= 2)
+
+. label variable has2plus "Has 2+ children (0/1)"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 6. Finalize IDs
+. * ─────────────────────────────────────────────────────────
+. * fid and provcd already have correct names; add labels.
+. label variable fid    "Household ID [orig: fid; no wave suffix in 2010 raw]"
+
+. label variable provcd "Province code [orig: provcd]"
+
+. label variable pid    "Individual PID"
+
+. label variable gender "Gender [orig: gender]"
+
+. label variable income "Individual income (annual) [orig: income]"
+
+. capture label variable own_sib "Number of siblings (self-reported, 2010) [orig: qb1]"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 7. Quick data check
+. * ─────────────────────────────────────────────────────────
+. display "  N = " _N
+  N = 33600
+
+. count if missing(pid)
+  0
+
+. display "  Missing pid: " r(N)
+  Missing pid: 0
+
+. count if !missing(father_pid)
+  5,145
+
+. display "  father_pid non-missing: " r(N)
+  father_pid non-missing: 5145
+
+. count if !missing(mother_pid)
+  6,105
+
+. display "  mother_pid non-missing: " r(N)
+  mother_pid non-missing: 6105
+
+. summarize children, detail
+
+                       (max) children
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%            0              0       Obs              33,600
+25%            1              0       Sum of wgt.      33,600
+
+50%            2                      Mean           1.769583
+                        Largest       Std. dev.      1.360519
+75%            2             10
+90%            4             10       Variance       1.851011
+95%            4             10       Skewness       1.043694
+99%            6             10       Kurtosis       4.685353
+
+. summarize birth_year
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+  birth_year |     33,599    1964.505    16.40552       1900       1994
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 8. Save clean file
+. * ─────────────────────────────────────────────────────────
+. order pid fid provcd wave year gender birth_year ethnicity ///
+>       marital_status children has2plus edu_level years_schooling ///
+>       income employ urban own_sib father_pid mother_pid
+
+. 
+. compress
+  variable wave was float now int
+  variable year was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable pid was double now long
+  variable fid was double now long
+  variable provcd was double now byte
+  variable gender was double now byte
+  variable birth_year was double now int
+  variable ethnicity was double now byte
+  variable marital_status was double now byte
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  variable income was double now long
+  variable employ was double now byte
+  variable urban was double now byte
+  variable own_sib was double now byte
+  variable father_pid was double now long
+  variable mother_pid was double now long
+  (3,326,400 bytes saved)
+
+. save "$CLEAN/person_2010.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2010.dta saved
+
+. display "Saved: $CLEAN/person_2010.dta"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2010.dta
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 9. Export variable dictionary
+. * ─────────────────────────────────────────────────────────
+. preserve
+
+. ds
+pid           wave          birth_year    children      years_scho~g  urban         mother_pid
+fid           year          ethnicity     has2plus      income        own_sib
+provcd        gender        marital_st~s  edu_level     employ        father_pid
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 19.
+
+. gen str32  varname = ""
+(19 missing values generated)
+
+. gen str244 label   = ""
+(19 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2010.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2010.csv saved
+
+. restore
+
+. 
+. display _newline "01_clean_2010 complete."
+
+01_clean_2010 complete.
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2012 wave..."
+Cleaning 2012 wave...
+
+. do "$DO/01_clean_2012.do"
+
+. *******************************************************
+. * File:    01_clean_2012.do
+. * Purpose: Clean CFPS 2012 adult file
+. * Input:   $RAW/2012/cfps2012adult_202505.dta
+. * Output:  $CLEAN/person_2012.dta
+. *          $PROJ/docs/var_dictionary_2012.csv
+. * Notes:
+. *   - pid_f / pid_m available in this wave
+. *   - children: nchd2 (main); nchd1, nchd3 kept as alternatives
+. *   - marital_status: qe104 (current at survey time, 现在的婚姻状况)
+. *   - urban: urban12 (NBS classification, consistent with later waves)
+. *   - ethnicity: cfps_minzu
+. *   - 2025-04: added qe104, cfps_minzu; switched urban to urban12
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2012 adult data..."
+Cleaning CFPS 2012 adult data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2012/cfps2012adult_202505.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid12 provcd pid_f pid_m {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in cfps2012_gender_best cfps2012_birthy_best cfps_minzu qe104 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Fertility
+. foreach v in nchd1 nchd2 nchd3 cageyog {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Education
+. foreach v in edu2012 eduy2012 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic
+. foreach v in income income_adj employ {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography / urban
+. foreach v in urban12 urbancomm typecomm {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Fertility
+. * nchd2 = main children count (survey-reported total); main outcome variable
+. capture {
+
+. 
+. capture {
+
+. 
+. * nchd3 = alternative children count (robustness)
+. capture {
+
+. 
+. * Additional panel variable
+. capture {
+
+. 
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Geography — urban12 as main (NBS classification, consistent with later waves)
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2012
+
+. gen wave = 2012
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. * Binary: has 2+ children
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. local pid_min = 100000000
+
+. foreach v in father_pid mother_pid {
+  2.     capture replace `v' = . if !missing(`v') & `v' < `pid_min'
+  3. }
+
+. foreach v in birth_year gender ethnicity marital_status ///
+>              edu_level years_schooling income employ urban ///
+>              children has2plus {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable has2plus was float now byte
+  (321,471 bytes saved)
+
+. save "$CLEAN/person_2012.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2012.dta saved
+
+. display "Saved: $CLEAN/person_2012.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2012.dta  (N = 35719)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           ethnicity     income        years_scho~g  children_v1   mother_pid    has2plus
+fid           marital_st~s  income_adj    community_~e  children      year
+provcd        gender        employ        community_~n  children_v3   wave
+urban         birth_year    edu_level     age_younge~d  father_pid    age
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 25.
+
+. gen str32  varname = ""
+(25 missing values generated)
+
+. gen str244 label   = ""
+(25 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2012.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2012.csv saved
+
+. restore
+
+. 
+. display "2012 clean complete."
+2012 clean complete.
+
+. 
+. *******************************************************
+. * PART 2: Clean 2012 child questionnaire
+. * Input:  $RAW/2012/cfps2012child_201906.dta
+. * Output: $CLEAN/child_2012.dta
+. * Notes:
+. *   - Respondents aged 10–15 in 2012 (birth_year ~1997–2002)
+. *   - pid shared with all CFPS databases → append into main panel
+. *   - wka202 is the target variable from this file
+. *   - Standard adult vars kept where available
+. *******************************************************
+. 
+. preserve
+
+. use "$RAW/2012/cfps2012child_201906.dta", clear
+
+. 
+. display "  Cleaning 2012 child file: N = " _N
+  Cleaning 2012 child file: N = 9918
+
+. 
+. local keep_c ""
+
+. foreach v in pid fid12 provcd ///
+>              gender cfps2012_gender_best ///
+>              cfps2012_birthy_best ibirthy ///
+>              cfps_minzu ///
+>              urban12 ///
+>              wka202 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_c `keep_c' `v'
+  4. }
+
+. keep `keep_c'
+
+. 
+. * Renames — safe; skip if already done or var absent
+. capture rename fid12   fid
+
+. capture rename cfps2012_gender_best gender
+
+. * Birth year: prefer corrected version
+. capture confirm variable cfps2012_birthy_best
+
+. if !_rc {
+.     capture rename cfps2012_birthy_best birth_year
+. }
+
+. else {
+.     capture rename ibirthy birth_year
+. }
+
+. capture rename cfps_minzu ethnicity
+
+. capture rename urban12    urban
+
+. 
+. gen year = 2012
+
+. gen wave = 2012
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. * Sentinel recodes
+. foreach v in birth_year gender ethnicity urban {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. capture replace wka202 = . if wka202 < 0
+
+. 
+. * Drop invalid pid
+. local pid_min = 100000000
+
+. drop if missing(pid) | pid < `pid_min'
+(1,298 observations deleted)
+
+. 
+. * Placeholders so schema matches adult files
+. foreach v in children has2plus marital_status edu_level ///
+>              years_schooling income employ ///
+>              father_pid mother_pid {
+  2.     capture confirm variable `v'
+  3.     if _rc gen `v' = .
+  4. }
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+(8,620 missing values generated)
+
+. capture gen has2plus = (children >= 2) if !missing(children)
+
+. 
+. label variable wka202 "wka202 [orig: wka202; 2012 child questionnaire only]"
+
+. 
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable marital_status was float now byte
+  variable edu_level was float now byte
+  variable years_schooling was float now byte
+  variable income was float now byte
+  variable employ was float now byte
+  variable father_pid was float now byte
+  variable mother_pid was float now byte
+  variable pid was double now long
+  variable fid was double now long
+  variable provcd was double now byte
+  variable ethnicity was double now byte
+  variable gender2 was double now byte
+  variable wka202 was double now byte
+  variable gender was double now byte
+  variable birth_year was double now int
+  variable urban was double now byte
+  (749,940 bytes saved)
+
+. save "$CLEAN/child_2012.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/child_2012.dta saved
+
+. display "  Saved: $CLEAN/child_2012.dta  (N = " _N ")"
+  Saved: /Users/huy/cfps_fertility_project/data/clean/child_2012.dta  (N = 8620)
+
+. restore
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2014 wave..."
+Cleaning 2014 wave...
+
+. do "$DO/01_clean_2014.do"
+
+. *******************************************************
+. * File:    01_clean_2014.do
+. * Purpose: Clean CFPS 2014 adult file
+. * Input:   $RAW/2014/cfps2014adult_201906.dta
+. * Output:  $CLEAN/person_2014.dta
+. *          $PROJ/docs/var_dictionary_2014.csv
+. * Notes:
+. *   - pid_f / pid_m available in this wave
+. *   - children: counted from famconf code_a_c1..code_a_c10 (slot > 0)
+. *     Source: cfps2014famconf_170630.dta
+. *     code_a_c* > 0 counts ALL children including non-CFPS-sample members;
+. *     pid_c* would miss children not enrolled in CFPS.
+. *   - marital_status: qea0 (current at survey time, 当前婚姻状态)
+. *   - urban: urban14 (NBS classification)
+. *   - ethnicity: cfps_minzu
+. *   - income: variable named `income` (all jobs total)
+. *   - employment: employ2014
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2014 adult data..."
+Cleaning CFPS 2014 adult data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2014/cfps2014adult_201906.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid14 provcd14 pid_f pid_m {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in cfps_gender cfps_birthy cfps_minzu qea0 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Fertility — child PIDs (to count children)
+. forvalues j = 1/10 {
+  2.     capture confirm variable code_a_c`j'
+  3.     if !_rc local keep_vars `keep_vars' code_a_c`j'
+  4. }
+
+. 
+. * Education
+. foreach v in cfps2014edu cfps2014eduy {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic
+. foreach v in income employ2014 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography
+. foreach v in urban14 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Socioeconomic
+. capture {
+
+. 
+. * Geography
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2014
+
+. gen wave = 2014
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. local pid_min = 100000000
+
+. foreach v in father_pid mother_pid {
+  2.     capture replace `v' = . if !missing(`v') & `v' < `pid_min'
+  3. }
+
+. foreach v in birth_year gender ethnicity marital_status ///
+>              edu_level years_schooling income employ urban {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * ─────────────────────────────────────────
+. * 4c. Count children from 2014 famconf (code_a_c1..code_a_c10)
+. *     Source: cfps2014famconf_170630.dta
+. *     The 2014 adult file does NOT contain code_a_c* / pid_c* columns.
+. * ─────────────────────────────────────────
+. tempfile childcount2014
+
+. 
+. preserve
+
+.     use "$RAW/2014/cfps2014famconf_170630.dta", clear
+
+. 
+.     * Use code_a_c* > 0 to count children.
+.     * code_a_c* is the household roster slot code: > 0 whenever a child occupies
+.     * that slot, regardless of whether the child is a CFPS sample member.
+.     * pid_c* would miss non-sample children (no PID assigned). Consistent with
+.     * the approach used in 2018/2020/2022 waves.
+.     gen children = 0
+
+.     forvalues j = 1/10 {
+  2.         capture confirm variable code_a_c`j'
+  3.         if !_rc {
+  4.             replace children = children + 1 ///
+>                 if !missing(code_a_c`j') & code_a_c`j' > 0
+  5.         }
+  6.     }
+(36,039 real changes made)
+(21,738 real changes made)
+(8,748 real changes made)
+(3,650 real changes made)
+(1,520 real changes made)
+(637 real changes made)
+(211 real changes made)
+(46 real changes made)
+(22 real changes made)
+(6 real changes made)
+
+.     label variable children ///
+>         "Number of children [counted from famconf code_a_c1..code_a_c10, slot > 0]"
+
+. 
+.     * Collapse to one row per pid (handles duplicate pid rows in famconf)
+.     drop if missing(pid) | pid < `pid_min'
+(0 observations deleted)
+
+.     collapse (max) children, by(pid)
+
+. 
+.     save `childcount2014'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. restore
+
+. 
+. * Merge children count back onto 2014 person file
+. * Use m:1 because 2014 adult file can have duplicate pid rows
+. * (non-core household members); childcount2014 is unique by pid from collapse
+. merge m:1 pid using `childcount2014', nogenerate keep(master match)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,621
+        from master                     2,621  
+        from using                          0  
+
+    Matched                            37,147  
+    -----------------------------------------
+
+. 
+. * Respondents not in famconf get children = 0
+. replace children = 0 if missing(children)
+(2,621 real changes made)
+
+. 
+. gen has2plus = (children >= 2) if !missing(children)
+
+. label variable has2plus "Has 2 or more children [constructed from famconf code count]"
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable fid was double now long
+  variable provcd was double now byte
+  variable urban was double now byte
+  variable code_a_c1 was double now int
+  variable code_a_c2 was double now int
+  variable code_a_c3 was double now int
+  variable code_a_c4 was double now int
+  variable code_a_c5 was double now int
+  variable code_a_c6 was double now int
+  variable code_a_c7 was double now int
+  variable code_a_c8 was double now int
+  variable code_a_c9 was double now int
+  variable code_a_c10 was double now int
+  variable birth_year was double now int
+  variable ethnicity was double now byte
+  variable gender was double now byte
+  variable marital_status was double now byte
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  variable employ was double now byte
+  variable income was double now long
+  (5,647,056 bytes saved)
+
+. save "$CLEAN/person_2014.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2014.dta saved
+
+. display "Saved: $CLEAN/person_2014.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2014.dta  (N = 39768)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           father_pid    code_a_c3     code_a_c7     birth_year    edu_level     year          has2plus
+fid           mother_pid    code_a_c4     code_a_c8     ethnicity     years_scho~g  wave
+provcd        code_a_c1     code_a_c5     code_a_c9     gender        employ        age
+urban         code_a_c2     code_a_c6     code_a_c10    marital_st~s  income        children
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 29.
+
+. gen str32  varname = ""
+(29 missing values generated)
+
+. gen str244 label   = ""
+(29 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2014.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2014.csv saved
+
+. restore
+
+. 
+. display "2014 clean complete."
+2014 clean complete.
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2016 wave..."
+Cleaning 2016 wave...
+
+. do "$DO/01_clean_2016.do"
+
+. *******************************************************
+. * File:    01_clean_2016.do
+. * Purpose: Clean CFPS 2016 adult file
+. * Input:   $RAW/2016/cfps2016adult_201906.dta
+. * Output:  $CLEAN/person_2016.dta
+. *          $PROJ/docs/var_dictionary_2016.csv
+. * Notes:
+. *   - pid_f / pid_m NOT in adult file; available in famconf.
+. *     Parent links for 2016 will be built in 02_build_kinship_backbone.do
+. *   - children: cfps_childn (受访者子女数目) — directly available
+. *   - marital_status: qea0 (当前婚姻状态)
+. *   - urban: urban16 (NBS classification)
+. *   - ethnicity: NOT available in 2016 adult file; will be carried
+. *     from earlier waves in the kinship backbone step
+. *   - income: `income` (all jobs total)
+. *   - employment: employ
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2016 adult data..."
+Cleaning CFPS 2016 adult data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2016/cfps2016adult_201906.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid16 provcd16 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in cfps_gender cfps_birthy qea0 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. * Note: cfps_minzu / minzu not present in 2016 adult file
+. 
+. * Fertility
+. foreach v in cfps_childn {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Education
+. foreach v in cfps2016edu cfps2016eduy {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic
+. foreach v in income employ {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography
+. foreach v in urban16 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. capture {
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Fertility
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Geography
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2016
+
+. gen wave = 2016
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. * Binary: has 2+ children
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. foreach v in birth_year gender marital_status ///
+>              edu_level years_schooling income employ urban ///
+>              children has2plus {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * Placeholder for parent PIDs (to be merged from famconf in 02_build_kinship_backbone.do)
+. gen father_pid = .
+(36,892 missing values generated)
+
+. gen mother_pid = .
+(36,892 missing values generated)
+
+. label variable father_pid "Father PID [to be filled from famconf in step 02]"
+
+. label variable mother_pid "Mother PID [to be filled from famconf in step 02]"
+
+. 
+. * Placeholder for ethnicity (not in 2016 adult; carry forward from earlier waves)
+. gen ethnicity = .
+(36,892 missing values generated)
+
+. label variable ethnicity "Ethnicity [not in 2016 adult; to be filled from earlier waves]"
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable has2plus was float now byte
+  variable father_pid was float now byte
+  variable mother_pid was float now byte
+  variable ethnicity was float now byte
+  variable fid was double now long
+  variable provcd was double now byte
+  variable urban was double now byte
+  variable birth_year was double now int
+  variable gender was double now byte
+  variable children was double now byte
+  variable marital_status was double now byte
+  variable employ was double now byte
+  variable income was double now long
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  (3,246,496 bytes saved)
+
+. save "$CLEAN/person_2016.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2016.dta saved
+
+. display "Saved: $CLEAN/person_2016.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2016.dta  (N = 36892)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           urban         children      income        year          has2plus      ethnicity
+fid           birth_year    marital_st~s  edu_level     wave          father_pid
+provcd        gender        employ        years_scho~g  age           mother_pid
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 19.
+
+. gen str32  varname = ""
+(19 missing values generated)
+
+. gen str244 label   = ""
+(19 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2016.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2016.csv saved
+
+. restore
+
+. 
+. display "2016 clean complete."
+2016 clean complete.
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2018 wave..."
+Cleaning 2018 wave...
+
+. do "$DO/01_clean_2018.do"
+
+. *******************************************************
+. * File:    01_clean_2018.do
+. * Purpose: Clean CFPS 2018 person file
+. * Input:   $RAW/2018/cfps2018person_202012.dta
+. * Output:  $CLEAN/person_2018.dta
+. *          $PROJ/docs/var_dictionary_2018.csv
+. * Notes:
+. *   - pid_f / pid_m NOT in person file; from famconf only.
+. *     Parent links built in 02_build_kinship_backbone.do
+. *   - children: counted from xchildpid_a_1..10 (non-missing, >0)
+. *   - marital_status: qea0 (当前婚姻状态)
+. *   - urban: urban18 (NBS classification)
+. *   - ethnicity: `minzu` (indicator flag for whether ethnicity data
+. *     exists; actual ethnicity value must be merged from famconf)
+. *   - income: `income` (all jobs, 税后工资性收入)
+. *   - employment: employ
+. *   - birth year: ibirthy (加载变量); use ibirthy_update if available
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2018 person data..."
+Cleaning CFPS 2018 person data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2018/cfps2018person_202012.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid18 provcd18 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in gender ibirthy ibirthy_update minzu qea0 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Fertility — child PIDs
+. forvalues j = 1/10 {
+  2.     capture confirm variable xchildpid_a_`j'
+  3.     if !_rc local keep_vars `keep_vars' xchildpid_a_`j'
+  4. }
+
+. 
+. * Education
+. foreach v in cfps2018edu cfps2018eduy {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic
+. foreach v in income employ {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography
+. foreach v in urban18 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. * Use ibirthy_update if present (corrected birth year), else ibirthy
+. capture confirm variable ibirthy_update
+
+. if !_rc {
+.     capture {
+.     capture drop ibirthy
+. }
+
+. else {
+.     capture {
+. }
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Geography
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2018
+
+. gen wave = 2018
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. tempfile childcount2018
+
+. 
+. preserve
+
+.     use "$RAW/2018/cfps2018famconf_202008.dta", clear
+
+. 
+.     * Keep key and child code columns
+.     keep pid fid18 code_a_c1-code_a_c10
+
+. 
+.     * Count children from code variables
+.     gen children = 0
+
+.     forvalues j = 1/10 {
+  2.         capture confirm variable code_a_c`j'
+  3.         if !_rc {
+  4.             replace children = children + 1 ///
+>                 if !missing(code_a_c`j') & code_a_c`j' > 0
+  5.         }
+  6.     }
+(36,447 real changes made)
+(21,636 real changes made)
+(7,455 real changes made)
+(2,698 real changes made)
+(1,056 real changes made)
+(403 real changes made)
+(134 real changes made)
+(23 real changes made)
+(6 real changes made)
+(1 real change made)
+
+. 
+.     label variable children "Number of children [counted from famconf code_a_c1..code_a_c10]"
+
+. 
+.     * Keep only merge keys + outcome
+.     keep pid fid18 children
+
+. 
+.     * Check uniqueness; choose pid if unique, otherwise use pid fid
+.     capture isid pid
+
+.     if _rc {
+.         isid pid fid18
+.     }
+
+. 
+.     save `childcount2018'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. restore
+
+. 
+. * Return to main 2018 person/adult file in memory
+. * Merge child count back
+. capture merge 1:1 pid using `childcount2018', nogenerate keep(master match)
+
+. if _rc {
+.     merge 1:1 pid fid18 using `childcount2018', nogenerate keep(master match)
+. }
+
+. 
+. * Rebuild has2plus
+. capture drop has2plus
+
+. gen has2plus = children >= 2 if !missing(children)
+
+. label variable has2plus "Has 2+ children (0/1)"
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. foreach v in birth_year gender ethnicity marital_status ///
+>              edu_level years_schooling income employ urban ///
+>              children has2plus {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * Placeholders for parent PIDs (from famconf, step 02)
+. gen father_pid = .
+(37,354 missing values generated)
+
+. gen mother_pid = .
+(37,354 missing values generated)
+
+. label variable father_pid "Father PID [to be filled from famconf in step 02]"
+
+. label variable mother_pid "Mother PID [to be filled from famconf in step 02]"
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable father_pid was float now byte
+  variable mother_pid was float now byte
+  variable fid was double now long
+  variable provcd was double now byte
+  variable urban was double now byte
+  variable gender was double now byte
+  variable ethnicity was double now byte
+  variable birth_year was double now int
+  variable marital_status was double now byte
+  variable employ was double now byte
+  variable income was double now long
+  variable xchildpid_a_2 was double now long
+  variable xchildpid_a_3 was double now long
+  variable xchildpid_a_4 was double now long
+  variable xchildpid_a_5 was double now long
+  variable xchildpid_a_6 was double now long
+  variable xchildpid_a_7 was double now long
+  variable xchildpid_a_8 was double now long
+  variable xchildpid_a_9 was double now long
+  variable xchildpid_a_10 was double now byte
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  variable fid18 was double now long
+  (4,893,374 bytes saved)
+
+. save "$CLEAN/person_2018.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2018.dta saved
+
+. display "Saved: $CLEAN/person_2018.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2018.dta  (N = 37354)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           gender        employ        xchildpid_~3  xchildpid_~7  edu_level     age           father_pid
+fid           ethnicity     income        xchildpid_~4  xchildpid_~8  years_scho~g  fid18         mother_pid
+provcd        birth_year    xchildpid_~1  xchildpid_~5  xchildpid_~9  year          children
+urban         marital_st~s  xchildpid_~2  xchildpid_~6  xchildpid~10  wave          has2plus
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 30.
+
+. gen str32  varname = ""
+(30 missing values generated)
+
+. gen str244 label   = ""
+(30 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2018.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2018.csv saved
+
+. restore
+
+. 
+. display "2018 clean complete."
+2018 clean complete.
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2020 wave..."
+Cleaning 2020 wave...
+
+. do "$DO/01_clean_2020.do"
+
+. *******************************************************
+. * File:    01_clean_2020.do
+. * Purpose: Clean CFPS 2020 person file
+. * Input:   $RAW/2020/cfps2020person_202306.dta
+. * Output:  $CLEAN/person_2020.dta
+. *          $PROJ/docs/var_dictionary_2020.csv
+. * Notes:
+. *   - pid_f / pid_m NOT in person file; from famconf only.
+. *     Parent links built in 02_build_kinship_backbone.do
+. *   - children: counted from xchildpid_a_1..8 (non-missing, >0)
+. *   - marital_status: qea0 (当前婚姻状态)
+. *   - urban: urban20 (NBS classification)
+. *   - ethnicity: `minzu` (indicator flag; actual value from famconf)
+. *   - income: emp_income (2020 onwards; replaces `income`)
+. *   - employment: employ
+. *   - birth year: ibirthy_update if present, else ibirthy
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2020 person data..."
+Cleaning CFPS 2020 person data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2020/cfps2020person_202306.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid20 provcd20 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in gender ibirthy ibirthy_update minzu qea0 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Fertility — child PIDs
+. forvalues j = 1/8 {
+  2.     capture confirm variable xchildpid_a_`j'
+  3.     if !_rc local keep_vars `keep_vars' xchildpid_a_`j'
+  4. }
+
+. 
+. * Education
+. foreach v in cfps2020edu cfps2020eduy {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic — note: income renamed emp_income in 2020
+. foreach v in emp_income income employ {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography
+. foreach v in urban20 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Additional adult variables
+. foreach v in qka205 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. * Prefer ibirthy_update (corrected) over ibirthy
+. capture confirm variable ibirthy_update
+
+. if !_rc {
+.     capture {
+.     capture drop ibirthy
+. }
+
+. else {
+.     capture {
+. }
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Income — use emp_income if present, else fall back to income
+. capture confirm variable emp_income
+
+. if !_rc {
+.     capture {
+. }
+
+. 
+. * Geography
+. capture {
+
+. 
+. * Additional adult variable
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2020
+
+. gen wave = 2020
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. * ------------------------------------------------------ *
+. * Children count from famconf code_a_c1..code_a_c8
+. * Use code-based child list instead of xchildpid_a_*,
+. * because code does not depend on successful child sample linkage.
+. * ------------------------------------------------------ *
+. 
+. tempfile childcount2020
+
+. 
+. preserve
+
+.     use "$RAW/2020/cfps2020famconf_202306.dta", clear
+
+. 
+.     * Keep key and child code columns
+.     keep pid fid20 code_a_c1-code_a_c10
+
+. 
+.     * Count children from code variables
+.     gen children = 0
+
+.     label variable children "Number of children [counted from famconf code_a_c1..code_a_c8]"
+
+. 
+.     forvalues j = 1/10 {
+  2.         capture confirm variable code_a_c`j'
+  3.         if !_rc {
+  4.             replace children = children + 1 ///
+>                 if !missing(code_a_c`j') & code_a_c`j' > 0
+  5.         }
+  6.     }
+(49,413 real changes made)
+(20,651 real changes made)
+(7,185 real changes made)
+(2,606 real changes made)
+(1,020 real changes made)
+(384 real changes made)
+(144 real changes made)
+(29 real changes made)
+(9 real changes made)
+(2 real changes made)
+
+. 
+.     * Keep only merge key(s) + outcome
+.     keep pid fid20 children
+
+. 
+.     * Prefer pid if unique
+.     capture isid pid
+
+.     if _rc {
+.         isid pid fid20
+.     }
+
+. 
+.     save `childcount2020'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. restore
+
+. 
+. * ------------------------------------------------------ *
+. * Merge famconf-based child count back to main 2020 file
+. * Prefer pid merge; fall back to pid+fid only if needed
+. * ------------------------------------------------------ *
+. 
+. capture merge 1:1 pid using `childcount2020', nogenerate keep(master match)
+
+. if _rc {
+.     merge 1:1 pid fid20 using `childcount2020', nogenerate keep(master match)
+. }
+
+. 
+. * Binary: has 2+ children
+. capture drop has2plus
+
+. gen has2plus = (children >= 2) if !missing(children)
+
+. label variable has2plus "Has 2 or more children [constructed from famconf code count]"
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. foreach v in birth_year gender ethnicity marital_status ///
+>              edu_level years_schooling income employ urban ///
+>              children has2plus {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * Placeholders for parent PIDs (from famconf, step 02)
+. gen father_pid = .
+(28,530 missing values generated)
+
+. gen mother_pid = .
+(28,530 missing values generated)
+
+. label variable father_pid "Father PID [to be filled from famconf in step 02]"
+
+. label variable mother_pid "Mother PID [to be filled from famconf in step 02]"
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable father_pid was float now byte
+  variable mother_pid was float now byte
+  variable fid was double now long
+  variable gender was double now byte
+  variable provcd was double now byte
+  variable urban was double now byte
+  variable ethnicity was double now byte
+  variable birth_year was double now int
+  variable marital_status was double now byte
+  variable ka205 was double now byte
+  variable employ was double now byte
+  variable income was double now long
+  variable xchildpid_a_1 was double now long
+  variable xchildpid_a_2 was double now long
+  variable xchildpid_a_3 was double now long
+  variable xchildpid_a_4 was double now long
+  variable xchildpid_a_5 was double now long
+  variable xchildpid_a_6 was double now long
+  variable xchildpid_a_7 was double now long
+  variable xchildpid_a_8 was double now long
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  variable fid20 was double now long
+  (3,737,430 bytes saved)
+
+. save "$CLEAN/person_2020.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2020.dta saved
+
+. display "Saved: $CLEAN/person_2020.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2020.dta  (N = 28530)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           urban         ka205         xchildpid_~2  xchildpid_~6  years_scho~g  fid20         mother_pid
+fid           ethnicity     employ        xchildpid_~3  xchildpid_~7  year          children
+gender        birth_year    income        xchildpid_~4  xchildpid_~8  wave          has2plus
+provcd        marital_st~s  xchildpid_~1  xchildpid_~5  edu_level     age           father_pid
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 29.
+
+. gen str32  varname = ""
+(29 missing values generated)
+
+. gen str244 label   = ""
+(29 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2020.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2020.csv saved
+
+. restore
+
+. 
+. display "2020 clean complete."
+2020 clean complete.
+
+. 
+end of do-file
+
+. 
+. display "Cleaning 2022 wave..."
+Cleaning 2022 wave...
+
+. do "$DO/01_clean_2022.do"
+
+. *******************************************************
+. * File:    01_clean_2022.do
+. * Purpose: Clean CFPS 2022 person file
+. * Input:   $RAW/2022/cfps2022person_202410.dta
+. * Output:  $CLEAN/person_2022.dta
+. *          $PROJ/docs/var_dictionary_2022.csv
+. * Notes:
+. *   - pid_f / pid_m NOT in person file; from famconf only.
+. *     Parent links built in 02_build_kinship_backbone.do
+. *   - children: counted from xchildpid_a_1..8 (non-missing, >0)
+. *   - marital_status: qea0 (当前婚姻状态)
+. *   - urban: urban22 (NBS classification)
+. *   - ethnicity: `minzu` (indicator flag; actual value from famconf)
+. *   - income: emp_income (consistent with 2020)
+. *   - employment: employ
+. *   - birth year: ibirthy_update if present, else ibirthy
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Cleaning CFPS 2022 person data..."
+Cleaning CFPS 2022 person data...
+
+. 
+. * ─────────────────────────────────────────
+. * 1. Load raw data
+. * ─────────────────────────────────────────
+. use "$RAW/2022/cfps2022person_202410.dta", clear
+
+. 
+. * ─────────────────────────────────────────
+. * 2. Safe keep — grouped by function
+. * ─────────────────────────────────────────
+. local keep_vars ""
+
+. 
+. * IDs
+. foreach v in pid fid22 provcd22 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Demographics
+. foreach v in gender ibirthy ibirthy_update minzu qea0 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Fertility — child PIDs
+. forvalues j = 1/8 {
+  2.     capture confirm variable xchildpid_a_`j'
+  3.     if !_rc local keep_vars `keep_vars' xchildpid_a_`j'
+  4. }
+
+. 
+. * Education
+. foreach v in cfps2022edu cfps2022eduy {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Socioeconomic
+. foreach v in emp_income income employ {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. * Geography
+. foreach v in urban22 {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_vars `keep_vars' `v'
+  4. }
+
+. 
+. keep `keep_vars'
+
+. 
+. * ─────────────────────────────────────────
+. * 3. Rename with label preservation
+. * ─────────────────────────────────────────
+. 
+. * IDs
+. capture {
+
+. 
+. capture {
+
+. 
+. * Demographics
+. * Prefer ibirthy_update (corrected) over ibirthy
+. capture confirm variable ibirthy_update
+
+. if !_rc {
+.     capture {
+.     capture drop ibirthy
+. }
+
+. else {
+.     capture {
+. }
+
+. 
+. capture {
+
+. 
+. capture {
+
+. 
+. * Education
+. capture {
+
+. 
+. capture {
+
+. 
+. * Income
+. capture confirm variable emp_income
+
+. if !_rc {
+.     capture {
+. }
+
+. 
+. * Geography
+. capture {
+
+. 
+. * ─────────────────────────────────────────
+. * 4. Construct derived variables
+. * ─────────────────────────────────────────
+. gen year = 2022
+
+. gen wave = 2022
+
+. label variable year "Survey year"
+
+. label variable wave "Survey wave"
+
+. 
+. capture gen age = year - birth_year if !missing(birth_year)
+
+. capture label variable age "Age at survey [constructed]"
+
+. 
+. * ------------------------------------------------------ *
+. * Children count from famconf code_a_c1..code_a_c8
+. * Use code-based child list instead of xchildpid_a_*,
+. * because code does not depend on successful child sample linkage.
+. * ------------------------------------------------------ *
+. 
+. tempfile childcount2022
+
+. 
+. preserve
+
+.     use "$RAW/2022/cfps2022famconf_202410.dta", clear
+
+. 
+.     * Keep key and child code columns
+.     keep pid fid22 code_a_c1-code_a_c10
+
+. 
+.     * Count children from code variables
+.     gen children = 0
+
+.     label variable children "Number of children [counted from famconf code_a_c1..code_a_c8]"
+
+. 
+.     forvalues j = 1/10 {
+  2.         capture confirm variable code_a_c`j'
+  3.         if !_rc {
+  4.             replace children = children + 1 ///
+>                 if !missing(code_a_c`j') & code_a_c`j' > 0
+  5.         }
+  6.     }
+(29,603 real changes made)
+(18,432 real changes made)
+(6,058 real changes made)
+(2,044 real changes made)
+(729 real changes made)
+(256 real changes made)
+(77 real changes made)
+(13 real changes made)
+(5 real changes made)
+(1 real change made)
+
+. 
+.     * Keep only merge key(s) + outcome
+.     keep pid fid22 children
+
+. 
+.     * Prefer pid if unique
+.     capture isid pid
+
+.     if _rc {
+.         isid pid fid22
+.     }
+
+. 
+.     save `childcount2022'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. restore
+
+. 
+. * ------------------------------------------------------ *
+. * Merge famconf-based child count back to main 2022 file
+. * Prefer pid merge; fall back to pid+fid only if needed
+. * ------------------------------------------------------ *
+. 
+. capture merge 1:1 pid using `childcount2022', nogenerate keep(master match)
+
+. if _rc {
+.     merge 1:1 pid fid22 using `childcount2022', nogenerate keep(master match)
+. }
+
+. 
+. * Binary: has 2+ children
+. capture drop has2plus
+
+. gen has2plus = (children >= 2) if !missing(children)
+
+. label variable has2plus "Has 2 or more children [constructed from famconf code count]"
+
+. 
+. * ─────────────────────────────────────────
+. * 4b. Recode negative sentinel values to missing
+. *     (-8 不适用, -9 缺失, -1 不知道, -2 拒绝)
+. *     Applied before saving to prevent invalid codes entering the panel.
+. * ─────────────────────────────────────────
+. foreach v in birth_year gender ethnicity marital_status ///
+>              edu_level years_schooling income employ urban ///
+>              children has2plus {
+  2.     capture replace `v' = . if `v' < 0
+  3. }
+
+. 
+. * Placeholders for parent PIDs (from famconf, step 02)
+. gen father_pid = .
+(27,001 missing values generated)
+
+. gen mother_pid = .
+(27,001 missing values generated)
+
+. label variable father_pid "Father PID [to be filled from famconf in step 02]"
+
+. label variable mother_pid "Mother PID [to be filled from famconf in step 02]"
+
+. 
+. * ─────────────────────────────────────────
+. * 5. Save clean file
+. * ─────────────────────────────────────────
+. compress
+  variable year was float now int
+  variable wave was float now int
+  variable age was float now int
+  variable children was float now byte
+  variable has2plus was float now byte
+  variable father_pid was float now byte
+  variable mother_pid was float now byte
+  variable fid was double now long
+  variable gender was double now byte
+  variable provcd was double now byte
+  variable urban was double now byte
+  variable ethnicity was double now byte
+  variable birth_year was double now int
+  variable marital_status was double now byte
+  variable employ was double now byte
+  variable income was double now long
+  variable xchildpid_a_1 was double now long
+  variable xchildpid_a_2 was double now long
+  variable xchildpid_a_3 was double now long
+  variable xchildpid_a_4 was double now long
+  variable xchildpid_a_5 was double now long
+  variable xchildpid_a_6 was double now long
+  variable xchildpid_a_7 was double now long
+  variable xchildpid_a_8 was double now long
+  variable edu_level was double now byte
+  variable years_schooling was double now byte
+  variable fid22 was double now long
+  (3,348,124 bytes saved)
+
+. save "$CLEAN/person_2022.dta", replace
+file /Users/huy/cfps_fertility_project/data/clean/person_2022.dta saved
+
+. display "Saved: $CLEAN/person_2022.dta  (N = " _N ")"
+Saved: /Users/huy/cfps_fertility_project/data/clean/person_2022.dta  (N = 27001)
+
+. 
+. * ─────────────────────────────────────────
+. * 6. Export variable dictionary
+. * ─────────────────────────────────────────
+. * Fix: collect labels BEFORE clearing, to avoid r(111) "variable not found"
+. preserve
+
+. ds
+pid           urban         employ        xchildpid_~3  xchildpid_~7  year          children
+fid           ethnicity     income        xchildpid_~4  xchildpid_~8  wave          has2plus
+gender        birth_year    xchildpid_~1  xchildpid_~5  edu_level     age           father_pid
+provcd        marital_st~s  xchildpid_~2  xchildpid_~6  years_scho~g  fid22         mother_pid
+
+. local vars `r(varlist)'
+
+. 
+. local nvars = 0
+
+. foreach v of local vars {
+  2.     local ++nvars
+  3.     local vname_`nvars' "`v'"
+  4.     local vlab_`nvars'  : variable label `v'
+  5. }
+
+. 
+. clear
+
+. set obs `nvars'
+Number of observations (_N) was 0, now 28.
+
+. gen str32  varname = ""
+(28 missing values generated)
+
+. gen str244 label   = ""
+(28 missing values generated)
+
+. 
+. forvalues j = 1/`nvars' {
+  2.     quietly replace varname = "`vname_`j''" in `j'
+  3.     quietly replace label   = "`vlab_`j''"  in `j'
+  4. }
+
+. 
+. export delimited using "$PROJ/docs/var_dictionary_2022.csv", replace
+file /Users/huy/cfps_fertility_project/docs/var_dictionary_2022.csv saved
+
+. restore
+
+. 
+. display "2022 clean complete."
+2022 clean complete.
+
+. 
+end of do-file
+
+. 
+. *******************************************************
+. * 5. Build pooled kinship backbone
+. *******************************************************
+. 
+. display "Building pooled kinship backbone..."
+Building pooled kinship backbone...
+
+. do "$DO/02_build_kinship_backbone.do"
+
+. *******************************************************
+. * File:    02_build_kinship_backbone.do
+. * Purpose: Build cross-wave parent-child PID linkage backbone
+. *          for later parental sibship construction
+. *
+. * Input:   $RAW/{wave}/cfps{wave}famconf_*.dta  (all 7 waves: 2010–2022)
+. *          $CLEAN/person_{wave}.dta             (updated in Step 8)
+. *
+. * Output:  $CONS/kinship_backbone.dta
+. *              One row per pid. Variables: pid, father_pid, mother_pid.
+. *              Earliest-wave non-missing value used when multiple
+. *              waves provide a value.
+. *          $CLEAN/person_{wave}.dta
+. *              father_pid / mother_pid placeholders (2016–2022) filled.
+. *              2010/2012/2014 values preserved; backbone fills missing only.
+. *
+. * Merge key: pid (1:1 into backbone, m:1 into person files)
+. *
+. * Notes on parent PID coding in famconf:
+. *   Valid PIDs   : integer >= 100,000,000 (CFPS 9-digit sample codes)
+. *   Sentinels → .: -10 无法判断, -9 缺失, -8 不适用,
+. *                  -2 拒绝回答, -1 不知道,
+. *                  77 其他, 78 以上都没有, 79 没有
+. *   Variable name differs by wave:
+. *     2010/2012/2014/2016/2022 famconf: pid_f  / pid_m
+. *     2018/2020 famconf:                pid_a_f / pid_a_m
+. *   2010 famconf filename: cfps2010famconf_report_nat072016.dta
+. *
+. * Why 2010 is included:
+. *   Primary purpose is to improve parent/grandparent PID coverage
+. *   for parental sibship construction (03_parent_sibship.do).
+. *   Parents of the 1975-1984 cohort (born ~1945-1960) and their
+. *   parents (born ~1920-1940) are more likely to appear in the 2010
+. *   famconf than in later waves (still alive in 2010; may have died
+. *   by 2012+). Adding 2010 as the EARLIEST wave gives it the highest
+. *   priority in the "earliest-wave wins" collapse logic.
+. *
+. * Known data facts (from pre-audit of 2012-2022, 2026-04-19):
+. *   - Pooled rows across 6 waves: ~328,000 (7-wave total TBD at runtime)
+. *   - Cross-wave father_pid conflicts: ~81 unique pids (6-wave estimate)
+. *   - Cross-wave mother_pid conflicts: ~114 unique pids (6-wave estimate)
+. *   - Backbone coverage: father ~75%, mother ~75% (will improve with 2010)
+. *
+. * IMPORTANT FOR NEXT STEP (03_parent_sibship.do):
+. *   Only pids whose father_pid (or mother_pid) is itself a pid in
+. *   the backbone can have sibship computed.
+. *
+. * Updated: 2026-04-20 (added 2010 wave)
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Building kinship backbone..."
+Building kinship backbone...
+
+. 
+. * Macro: valid PID lower bound (all CFPS sample codes >= 100,000,000)
+. local pid_min = 100000000
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 1. Extract parent PIDs from each famconf wave  (7 waves: 2010–2022)
+. *    Each wave produces: pid | father_pid | mother_pid | wave_src
+. *    Sentinel values are replaced with . (missing)
+. *    Rows with missing/invalid pid are dropped
+. * ─────────────────────────────────────────────────────────
+. 
+. * ---------- 2010 ----------
+. * Filename differs from later waves: cfps2010famconf_report_nat072016.dta
+. * Variable names pid_f / pid_m — same as 2012/2014/2016/2022.
+. use "$RAW/2010/cfps2010famconf_report_nat072016.dta", clear
+
+. keep pid pid_f pid_m
+
+. rename pid_f father_pid
+
+. rename pid_m mother_pid
+
+. gen wave_src = 2010
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(35,350 real changes made, 35,350 to missing)
+(34,053 real changes made, 34,053 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2010
+
+. save `fam2010'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. display "  2010 famconf: " _N " obs"
+  2010 famconf: 57155 obs
+
+. 
+. * ---------- 2012 ----------
+. use "$RAW/2012/cfps2012famconf_092015.dta", clear
+
+. keep pid pid_f pid_m
+
+. rename pid_f father_pid
+
+. rename pid_m mother_pid
+
+. gen wave_src = 2012
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(32,667 real changes made, 32,667 to missing)
+(31,383 real changes made, 31,383 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2012
+
+. save `fam2012'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000002 saved as .dta format
+
+. display "  2012 famconf: " _N " obs"
+  2012 famconf: 55012 obs
+
+. 
+. * ---------- 2014 ----------
+. use "$RAW/2014/cfps2014famconf_170630.dta", clear
+
+. keep pid pid_f pid_m
+
+. rename pid_f father_pid
+
+. rename pid_m mother_pid
+
+. gen wave_src = 2014
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(32,988 real changes made, 32,988 to missing)
+(31,546 real changes made, 31,546 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2014
+
+. save `fam2014'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000003 saved as .dta format
+
+. display "  2014 famconf: " _N " obs"
+  2014 famconf: 57734 obs
+
+. 
+. * ---------- 2016 ----------
+. use "$RAW/2016/cfps2016famconf_201804.dta", clear
+
+. keep pid pid_f pid_m
+
+. rename pid_f father_pid
+
+. rename pid_m mother_pid
+
+. gen wave_src = 2016
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(32,844 real changes made, 32,844 to missing)
+(31,371 real changes made, 31,371 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2016
+
+. save `fam2016'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000004 saved as .dta format
+
+. display "  2016 famconf: " _N " obs"
+  2016 famconf: 58179 obs
+
+. 
+. * ---------- 2018 (pid_a_f / pid_a_m — different naming from other waves) ----------
+. use "$RAW/2018/cfps2018famconf_202008.dta", clear
+
+. keep pid pid_a_f pid_a_m
+
+. rename pid_a_f father_pid
+
+. rename pid_a_m mother_pid
+
+. gen wave_src = 2018
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(9,922 real changes made, 9,922 to missing)
+(10,618 real changes made, 10,618 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2018
+
+. save `fam2018'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000005 saved as .dta format
+
+. display "  2018 famconf: " _N " obs"
+  2018 famconf: 58504 obs
+
+. 
+. * ---------- 2020 (pid_a_f / pid_a_m) ----------
+. use "$RAW/2020/cfps2020famconf_202306.dta", clear
+
+. keep pid pid_a_f pid_a_m
+
+. rename pid_a_f father_pid
+
+. rename pid_a_m mother_pid
+
+. gen wave_src = 2020
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(9,069 real changes made, 9,069 to missing)
+(9,502 real changes made, 9,502 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2020
+
+. save `fam2020'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000006 saved as .dta format
+
+. display "  2020 famconf: " _N " obs"
+  2020 famconf: 51291 obs
+
+. 
+. * ---------- 2022 ----------
+. use "$RAW/2022/cfps2022famconf_202410.dta", clear
+
+. keep pid pid_f pid_m
+
+. rename pid_f father_pid
+
+. rename pid_m mother_pid
+
+. gen wave_src = 2022
+
+. 
+. foreach v in father_pid mother_pid {
+  2.     replace `v' = . if `v' < `pid_min'
+  3. }
+(8,626 real changes made, 8,626 to missing)
+(8,899 real changes made, 8,899 to missing)
+
+. 
+. keep if !missing(pid) & pid > 0
+(0 observations deleted)
+
+. tempfile fam2022
+
+. save `fam2022'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000007 saved as .dta format
+
+. display "  2022 famconf: " _N " obs"
+  2022 famconf: 47328 obs
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 2. Pool all 7 waves (2010–2022)
+. *    2010 is appended first so that after sorting by wave_src,
+. *    it becomes the highest-priority wave in Step 4's collapse.
+. * ─────────────────────────────────────────────────────────
+. use `fam2010', clear
+
+. foreach yr in 2012 2014 2016 2018 2020 2022 {
+  2.     append using `fam`yr''
+  3. }
+(label pid already defined)
+(label pid_f already defined)
+(label pid_m already defined)
+(label pid_m already defined)
+(label pid_f already defined)
+(label pid already defined)
+(label pid_m already defined)
+(label pid_f already defined)
+(label pid already defined)
+(label pid_a_m already defined)
+(label pid_a_f already defined)
+(label pid already defined)
+(label pid_m already defined)
+(label pid_f already defined)
+(label pid already defined)
+
+. 
+. display _N " total obs across all waves (before dedup and collapse)"
+385203 total obs across all waves (before dedup and collapse)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3. Remove within-wave pid duplicates
+. *    Cause: same person appears in multiple roster positions
+. *    in the same wave's famconf (e.g., co-resident + listed again).
+. *    Resolution: sort so the row with the SMALLEST non-missing parent
+. *    PID comes first, then keep first within pid-wave.
+. *    This is deterministic but somewhat arbitrary; cross-wave
+. *    conflicts are detected separately in Step 3b.
+. * ─────────────────────────────────────────────────────────
+. duplicates report pid wave_src
+
+Duplicates in terms of pid wave_src
+
+--------------------------------------
+   Copies | Observations       Surplus
+----------+---------------------------
+        1 |       378430             0
+        2 |         6740          3370
+        3 |           33            22
+--------------------------------------
+
+. 
+. duplicates tag pid wave_src, gen(_dup_tag)
+
+Duplicates in terms of pid wave_src
+
+. count if _dup_tag > 0
+  6,773
+
+. if r(N) > 0 {
+.     display "  NOTE: " r(N) " within-wave duplicate pid-wave rows detected."
+  NOTE: 6773 within-wave duplicate pid-wave rows detected.
+.     display "        Keeping row with smallest non-missing parent PID per pid-wave."
+        Keeping row with smallest non-missing parent PID per pid-wave.
+.     sort pid wave_src father_pid mother_pid
+.     by pid wave_src: keep if _n == 1
+(3,392 observations deleted)
+.     display "  After dedup: " _N " obs remain"
+  After dedup: 381811 obs remain
+. }
+
+. drop _dup_tag
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3b. Detect cross-wave parent PID conflicts
+. *
+. *     Definition: same pid has two or more DIFFERENT non-missing
+. *     values for father_pid (or mother_pid) across waves.
+. *     This is NOT the same as: missing in some waves (harmless).
+. *
+. *     ASSUMPTION: a person's biological parent is fixed. Conflicts
+. *     suggest data entry errors, panel attrition artifacts, or
+. *     re-interviewing the same person in a different household.
+. *
+. *     Action: conflicts are LOGGED but not dropped. Step 4's collapse
+. *     (firstnm, sorted by wave_src ascending) will silently keep the
+. *     earliest-wave value. This section makes that choice auditable.
+. *
+. *     IMPACT ON NEXT STEP: if a conflicted pid is a respondent in the
+. *     1975-1984 cohort, their parental sibship may be mis-assigned.
+. *     Analysts should verify conflict pids are not driving results.
+. * ─────────────────────────────────────────────────────────
+. 
+. * Use min/max per pid: if min ≠ max, there are at least 2 distinct
+. * non-missing values → cross-wave conflict
+. bysort pid: egen _f_min = min(father_pid)
+(68,091 missing values generated)
+
+. bysort pid: egen _f_max = max(father_pid)
+(68,091 missing values generated)
+
+. bysort pid: egen _m_min = min(mother_pid)
+(72,332 missing values generated)
+
+. bysort pid: egen _m_max = max(mother_pid)
+(72,332 missing values generated)
+
+. 
+. gen _conflict_f = (!missing(_f_min) & _f_min != _f_max)
+
+. gen _conflict_m = (!missing(_m_min) & _m_min != _m_max)
+
+. 
+. * Count at pid level (not row level)
+. bysort pid: gen _pid_first = (_n == 1)
+
+. 
+. count if _conflict_f & _pid_first
+  62
+
+. local n_conf_f = r(N)
+
+. count if _conflict_m & _pid_first
+  105
+
+. local n_conf_m = r(N)
+
+. 
+. display "  Cross-wave conflicting father_pid: `n_conf_f' unique pids"
+  Cross-wave conflicting father_pid: 62 unique pids
+
+. display "  Cross-wave conflicting mother_pid:  `n_conf_m' unique pids"
+  Cross-wave conflicting mother_pid:  105 unique pids
+
+. 
+. if `n_conf_f' > 0 | `n_conf_m' > 0 {
+.     display "  --> Earliest-wave non-missing value will be used (Step 4)."
+  --> Earliest-wave non-missing value will be used (Step 4).
+.     display "  --> For the 1975-1984 cohort, verify these conflicts are negligible."
+  --> For the 1975-1984 cohort, verify these conflicts are negligible.
+. }
+
+. 
+. drop _f_min _f_max _m_min _m_max _conflict_f _conflict_m _pid_first
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3c. Enforce 2010-only for pids present in 2010 famconf
+. *
+. *     For any pid that appears in wave_src == 2010, keep ONLY its 2010 row.
+. *     Rows from later waves are dropped for those pids.
+. *
+. *     Rationale:
+. *       (a) cfps2010famconf has 50,000+ records — largest coverage
+. *       (b) Parents of the 1975–1984 cohort (b. ~1945–1960) are more
+. *           likely alive and present in 2010 than later waves
+. *       (c) qb1 (parental sibship key variable) was collected in 2010 only;
+. *           pids observed in 2010 have the best chance of having parents
+. *           with qb1 responses
+. *       (d) Prevents later-wave data from silently overriding a deliberately
+. *           missing 2010 parent link (e.g., confirmed absent parent)
+. *
+. *     Pids NOT in 2010 famconf retain all available waves; Step 4 then
+. *     applies earliest-wave-wins logic normally.
+. * ─────────────────────────────────────────────────────────
+. bysort pid: egen _in2010 = max(wave_src == 2010)
+
+. drop if _in2010 == 1 & wave_src != 2010
+(256,299 observations deleted)
+
+. drop _in2010
+
+. display _N " obs after enforcing 2010 authoritative base (Step 3c)"
+125512 obs after enforcing 2010 authoritative base (Step 3c)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 4. Collapse to person-level: take EARLIEST-WAVE non-missing value
+. *
+. *    Mechanism: sort by pid wave_src (ascending), then collapse
+. *    with (firstnm). Stata's firstnm respects the current row order
+. *    within each by-group and returns the first non-missing value.
+. *    Because rows are sorted earliest-wave-first, this guarantees
+. *    "earliest available wave" semantics — not just "first row".
+. *
+. *    This sort must immediately precede collapse. Do not re-sort
+. *    between these two lines.
+. * ─────────────────────────────────────────────────────────
+. sort pid wave_src                    // ← guarantees earliest-wave priority for firstnm
+
+. collapse (firstnm) father_pid mother_pid, by(pid)
+
+. 
+. display _N " unique PIDs in backbone (after collapse)"
+79392 unique PIDs in backbone (after collapse)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 5. Verify uniqueness — backbone must be keyed by pid
+. * ─────────────────────────────────────────────────────────
+. isid pid
+
+. display "  OK: pid is unique identifier in backbone"
+  OK: pid is unique identifier in backbone
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 6. Label variables and save backbone
+. * ─────────────────────────────────────────────────────────
+. label variable pid        "Individual PID"
+
+. label variable father_pid "Father PID [famconf, earliest non-missing wave]"
+
+. label variable mother_pid "Mother PID [famconf, earliest non-missing wave]"
+
+. 
+. compress
+  (0 bytes saved)
+
+. save "$CONS/kinship_backbone.dta", replace
+file /Users/huy/cfps_fertility_project/data/constructed/kinship_backbone.dta saved
+
+. display "Saved: $CONS/kinship_backbone.dta"
+Saved: /Users/huy/cfps_fertility_project/data/constructed/kinship_backbone.dta
+
+. 
+. * Also save a diagnostic copy to tempfile for the diagnostics block below
+. tempfile backbone_diag
+
+. save `backbone_diag'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000008 saved as .dta format
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 7. DIAGNOSTICS BLOCK
+. *    Runs after backbone is saved so diagnostics cannot corrupt output.
+. *    Produces three sub-sections:
+. *      7a. Build helper lookup files (pid set, birth_year pool)
+. *      7b. Load backbone + add indicators
+. *      7c. Report: overall coverage, parent-in-backbone, cohort
+. * ─────────────────────────────────────────────────────────
+. 
+. display _newline "--- Running backbone diagnostics ---"
+
+--- Running backbone diagnostics ---
+
+. 
+. * ── 7a-i. Build backbone pid lookup (for parent-in-backbone check) ──
+. * We need to ask: "is father_pid itself a pid in this backbone?"
+. * Strategy: save all backbone pids to a tempfile keyed by check_pid,
+. * then merge backbone against itself on father_pid / mother_pid.
+. use `backbone_diag', clear
+
+. keep pid
+
+. rename pid check_pid
+
+. sort check_pid
+
+. tempfile bb_pids
+
+. save `bb_pids'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000009 saved as .dta format
+
+. 
+. * ── 7a-ii. Build pooled birth_year lookup (for cohort diagnostics) ──
+. * Load only pid and birth_year from each clean wave (7 waves: 2010–2022)
+. * and collapse to one row per pid (first non-missing birth_year).
+. foreach yr in 2010 2012 2014 2016 2018 2020 2022 {
+  2.     use pid birth_year using "$CLEAN/person_`yr'.dta", clear
+  3.     tempfile byr`yr'
+  4.     save `byr`yr''
+  5. }
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000a saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000b saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000c saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000d saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000e saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000f saved as .dta format
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000g saved as .dta format
+
+. use `byr2010', clear
+
+. foreach yr in 2012 2014 2016 2018 2020 2022 {
+  2.     append using `byr`yr''
+  3. }
+(label pid already defined)
+(variable pid was long, now double to accommodate using data's values)
+(label pid already defined)
+(label cfps_birthy already defined)
+(label pid already defined)
+(label pid already defined)
+(label pid already defined)
+(label ibirthy_update already defined)
+(label pid already defined)
+(label ibirthy_update already defined)
+
+. keep if !missing(pid) & pid > 0
+(2,621 observations deleted)
+
+. collapse (firstnm) birth_year, by(pid)
+
+. tempfile byears
+
+. save `byears'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000h saved as .dta format
+
+. 
+. * ── 7b. Reload backbone and attach diagnostic indicators ──
+. use `backbone_diag', clear
+
+. 
+. * Parent-in-backbone indicator: father
+. * Rename father_pid → check_pid so we can merge on it;
+. * merge will add a _merge indicator; restore name afterwards.
+. rename father_pid check_pid
+
+. merge m:1 check_pid using `bb_pids', keep(master match)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        45,525
+        from master                    45,525  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            33,867  (_merge==3)
+    -----------------------------------------
+
+. gen _f_in_bb = (_merge == 3) & !missing(check_pid)
+
+. drop _merge
+
+. rename check_pid father_pid
+
+. 
+. * Parent-in-backbone indicator: mother (same approach)
+. rename mother_pid check_pid
+
+. merge m:1 check_pid using `bb_pids', keep(master match)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        43,534
+        from master                    43,534  (_merge==1)
+        from using                          0  (_merge==2)
+
+    Matched                            35,858  (_merge==3)
+    -----------------------------------------
+
+. gen _m_in_bb = (_merge == 3) & !missing(check_pid)
+
+. drop _merge
+
+. rename check_pid mother_pid
+
+. 
+. * Merge birth_year for cohort-specific reporting
+. merge 1:1 pid using `byears', keep(master match) nogenerate
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        19,662
+        from master                    19,662  
+        from using                          0  
+
+    Matched                            59,730  
+    -----------------------------------------
+
+. gen _in_cohort = (birth_year >= 1975 & birth_year <= 1984) ///
+>                  if !missing(birth_year)
+(20,165 missing values generated)
+
+. 
+. * ── 7c. Report ──
+. display _newline "=========================================="
+
+==========================================
+
+. display "  BACKBONE DIAGNOSTICS"
+  BACKBONE DIAGNOSTICS
+
+. display "=========================================="
+==========================================
+
+. 
+. local N_bb = _N
+
+. display "  Total unique PIDs in backbone: `N_bb'"
+  Total unique PIDs in backbone: 79392
+
+. 
+. * Overall coverage
+. count if !missing(father_pid)
+  34,368
+
+. local n_f = r(N)
+
+. display "  father_pid non-missing: `n_f' (" %5.1f `n_f'/`N_bb'*100 "%)"
+  father_pid non-missing: 34368 ( 43.3%)
+
+. 
+. count if !missing(mother_pid)
+  36,221
+
+. local n_m = r(N)
+
+. display "  mother_pid non-missing: `n_m' (" %5.1f `n_m'/`N_bb'*100 "%)"
+  mother_pid non-missing: 36221 ( 45.6%)
+
+. 
+. count if !missing(father_pid) & !missing(mother_pid)
+  32,196
+
+. display "  both parents non-missing: " r(N) " (" %5.1f r(N)/`N_bb'*100 "%)"
+  both parents non-missing: 32196 ( 40.6%)
+
+. 
+. * Parent-in-backbone (critical for sibship)
+. display _newline "  -- Parent-in-backbone (relevant for sibship construction) --"
+
+  -- Parent-in-backbone (relevant for sibship construction) --
+
+. count if _f_in_bb
+  33,867
+
+. display "  father_pid found in backbone: " r(N) " / `n_f'"
+  father_pid found in backbone: 33867 / 34368
+
+. count if _m_in_bb
+  35,858
+
+. display "  mother_pid found in backbone: " r(N) " / `n_m'"
+  mother_pid found in backbone: 35858 / 36221
+
+. count if _f_in_bb & _m_in_bb
+  31,826
+
+. display "  both parents found in backbone: " r(N)
+  both parents found in backbone: 31826
+
+. display "  NOTE: Only pids whose parent is found in backbone can"
+  NOTE: Only pids whose parent is found in backbone can
+
+. display "        have parental sibship computed in the next step."
+        have parental sibship computed in the next step.
+
+. 
+. * Cohort-specific (1975-1984 main analysis sample)
+. display _newline "  -- Cohort 1975-1984 (main DiD sample) --"
+
+  -- Cohort 1975-1984 (main DiD sample) --
+
+. count if _in_cohort
+  28,266
+
+. local n_coh = r(N)
+
+. if `n_coh' == 0 {
+.     display "  WARNING: No cohort pids found in backbone."
+.     display "           Check that birth_year loaded correctly from clean files."
+. }
+
+. else {
+.     display "  Backbone pids in cohort: `n_coh'"
+  Backbone pids in cohort: 28266
+. 
+.     count if _in_cohort & !missing(father_pid)
+  16,356
+.     display "  With non-missing father_pid: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  With non-missing father_pid: 16356 ( 57.9%)
+. 
+.     count if _in_cohort & !missing(mother_pid)
+  17,100
+.     display "  With non-missing mother_pid: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  With non-missing mother_pid: 17100 ( 60.5%)
+. 
+.     count if _in_cohort & !missing(father_pid) & !missing(mother_pid)
+  15,140
+.     display "  With both parents non-missing: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  With both parents non-missing: 15140 ( 53.6%)
+. 
+.     count if _in_cohort & _f_in_bb
+  15,908
+.     display "  Father found in backbone: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  Father found in backbone: 15908 ( 56.3%)
+. 
+.     count if _in_cohort & _m_in_bb
+  16,796
+.     display "  Mother found in backbone: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  Mother found in backbone: 16796 ( 59.4%)
+. 
+.     count if _in_cohort & _f_in_bb & _m_in_bb
+  14,827
+.     display "  Both parents in backbone: " r(N) " (" %5.1f r(N)/`n_coh'*100 "%)"
+  Both parents in backbone: 14827 ( 52.5%)
+. }
+
+. 
+. display "=========================================="
+==========================================
+
+. 
+. * Diagnostics done — drop temp vars, no need to re-save backbone
+. * (backbone_diag tempfile and $CONS/kinship_backbone.dta are clean)
+. 
+. * ─────────────────────────────────────────────────────────
+. * 8. SAFE MERGE-BACK
+. *    Fill father_pid / mother_pid in clean person files.
+. *
+. *    Strategy:
+. *      (a) Rename existing father_pid → _f_orig (preserve original)
+. *      (b) Merge backbone values in as father_pid / mother_pid
+. *      (c) Rename backbone values → father_pid_bb / mother_pid_bb
+. *      (d) Restore originals: rename _f_orig → father_pid
+. *      (e) Count and report: fills (orig missing, bb non-missing)
+. *                            conflicts (orig ≠ bb, both non-missing)
+. *      (f) Fill missing originals with backbone value only
+. *      (g) Drop _bb temp vars; save
+. *
+. *    For 2010/2012/2014: father_pid already non-missing from adult file.
+. *      Fills should be near zero; any conflict is flagged.
+. *    For 2016–2022: father_pid = . (placeholder); fills = coverage.
+. *
+. *    NOTE: Rows with pid = . (2014 non-core members, N=2,621) will
+. *      not match any backbone row; their parent fields remain missing.
+. * ─────────────────────────────────────────────────────────
+. 
+. foreach yr in 2010 2012 2014 2016 2018 2020 2022 {
+  2. 
+.     display _newline "--- Updating person_`yr'.dta ---"
+  3.     use "$CLEAN/person_`yr'.dta", clear
+  4. 
+.     * Warn about obs that cannot be matched (missing/invalid pid)
+.     count if missing(pid) | pid <= 0
+  5.     if r(N) > 0 {
+  6.         display "  NOTE: " r(N) " obs with missing/invalid pid (non-core members)."
+  7.         display "        These will not be matched to backbone."
+  8.     }
+  9. 
+.     * (a) Preserve originals by renaming
+.     rename father_pid _f_orig
+ 10.     rename mother_pid _m_orig
+ 11. 
+.     * (b) Merge backbone values
+.     * Because we renamed the originals, father_pid / mother_pid do not
+.     * exist in master — merge can safely create them from the backbone.
+.     merge m:1 pid using "$CONS/kinship_backbone.dta", ///
+>         keepusing(father_pid mother_pid) ///
+>         keep(master match) nogenerate
+ 12. 
+.     * (c) Rename backbone values to temporary names
+.     rename father_pid father_pid_bb
+ 13.     rename mother_pid mother_pid_bb
+ 14. 
+.     * (d) Restore originals
+.     rename _f_orig father_pid
+ 15.     rename _m_orig mother_pid
+ 16. 
+.     * (e-i) Count fills: original was missing, backbone has a value
+.     count if missing(father_pid) & !missing(father_pid_bb)
+ 17.     local n_fill_f = r(N)
+ 18.     count if missing(mother_pid) & !missing(mother_pid_bb)
+ 19.     local n_fill_m = r(N)
+ 20. 
+.     * (e-ii) Count conflicts: both non-missing AND disagreeing
+.     * These should be rare; if non-zero, the original is kept.
+.     count if !missing(father_pid) & !missing(father_pid_bb) ///
+>              & father_pid != father_pid_bb
+ 21.     local n_conf_f = r(N)
+ 22.     count if !missing(mother_pid) & !missing(mother_pid_bb) ///
+>              & mother_pid != mother_pid_bb
+ 23.     local n_conf_m = r(N)
+ 24. 
+.     if `n_conf_f' > 0 | `n_conf_m' > 0 {
+ 25.         display "  WARNING: `n_conf_f' father_pid conflicts, " ///
+>                 "`n_conf_m' mother_pid conflicts."
+ 26.         display "           Original (adult-file) value kept; backbone value discarded."
+ 27.     }
+ 28. 
+.     * (f) Fill only missing original values
+.     replace father_pid = father_pid_bb if missing(father_pid)
+ 29.     replace mother_pid = mother_pid_bb if missing(mother_pid)
+ 30. 
+.     display "  father_pid filled from backbone: `n_fill_f'"
+ 31.     display "  mother_pid filled from backbone: `n_fill_m'"
+ 32. 
+.     * Final coverage report
+.     count if !missing(father_pid)
+ 33.     display "  Final father_pid non-missing: " r(N) " / " _N
+ 34.     count if !missing(mother_pid)
+ 35.     display "  Final mother_pid non-missing: " r(N) " / " _N
+ 36. 
+.     * (g) Clean up and save
+.     drop father_pid_bb mother_pid_bb
+ 37.     compress
+ 38.     save "$CLEAN/person_`yr'.dta", replace
+ 39.     display "  Saved: $CLEAN/person_`yr'.dta"
+ 40. }
+
+--- Updating person_2010.dta ---
+  0
+(variable pid was long, now double to accommodate using data's values)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            33,600  
+    -----------------------------------------
+  1,066
+  993
+  0
+  0
+(1,066 real changes made)
+(993 real changes made)
+  father_pid filled from backbone: 1066
+  mother_pid filled from backbone: 993
+  6,211
+  Final father_pid non-missing: 6211 / 33600
+  7,098
+  Final mother_pid non-missing: 7098 / 33600
+  variable pid was double now long
+  (134,400 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2010.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2010.dta
+
+--- Updating person_2012.dta ---
+  0
+(variable pid was long, now double to accommodate using data's values)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            35,719  
+    -----------------------------------------
+  70
+  77
+  0
+  1
+  WARNING: 0 father_pid conflicts, 1 mother_pid conflicts.
+           Original (adult-file) value kept; backbone value discarded.
+(70 real changes made)
+(77 real changes made)
+  father_pid filled from backbone: 70
+  mother_pid filled from backbone: 77
+  9,555
+  Final father_pid non-missing: 9555 / 35719
+  10,501
+  Final mother_pid non-missing: 10501 / 35719
+  variable pid was double now long
+  (142,876 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2012.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2012.dta
+
+--- Updating person_2014.dta ---
+  2,621
+  NOTE: 2621 obs with missing/invalid pid (non-core members).
+        These will not be matched to backbone.
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                         2,621
+        from master                     2,621  
+        from using                          0  
+
+    Matched                            37,147  
+    -----------------------------------------
+  118
+  126
+  0
+  2
+  WARNING: 0 father_pid conflicts, 2 mother_pid conflicts.
+           Original (adult-file) value kept; backbone value discarded.
+(118 real changes made)
+(126 real changes made)
+  father_pid filled from backbone: 118
+  mother_pid filled from backbone: 126
+  10,720
+  Final father_pid non-missing: 10720 / 39768
+  11,754
+  Final mother_pid non-missing: 11754 / 39768
+  (0 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2014.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2014.dta
+
+--- Updating person_2016.dta ---
+  0
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            36,892  
+    -----------------------------------------
+  11,164
+  12,042
+  0
+  0
+variable father_pid was byte now double
+(11,164 real changes made)
+variable mother_pid was byte now double
+(12,042 real changes made)
+  father_pid filled from backbone: 11164
+  mother_pid filled from backbone: 12042
+  11,164
+  Final father_pid non-missing: 11164 / 36892
+  12,042
+  Final mother_pid non-missing: 12042 / 36892
+  (0 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2016.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2016.dta
+
+--- Updating person_2018.dta ---
+  0
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            37,354  
+    -----------------------------------------
+  12,815
+  13,692
+  0
+  0
+variable father_pid was byte now double
+(12,815 real changes made)
+variable mother_pid was byte now double
+(13,692 real changes made)
+  father_pid filled from backbone: 12815
+  mother_pid filled from backbone: 13692
+  12,815
+  Final father_pid non-missing: 12815 / 37354
+  13,692
+  Final mother_pid non-missing: 13692 / 37354
+  (0 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2018.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2018.dta
+
+--- Updating person_2020.dta ---
+  0
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            28,530  
+    -----------------------------------------
+  10,799
+  11,437
+  0
+  0
+variable father_pid was byte now double
+(10,799 real changes made)
+variable mother_pid was byte now double
+(11,437 real changes made)
+  father_pid filled from backbone: 10799
+  mother_pid filled from backbone: 11437
+  10,799
+  Final father_pid non-missing: 10799 / 28530
+  11,437
+  Final mother_pid non-missing: 11437 / 28530
+  (0 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2020.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2020.dta
+
+--- Updating person_2022.dta ---
+  0
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            27,001  
+    -----------------------------------------
+  10,691
+  11,278
+  0
+  0
+variable father_pid was byte now double
+(10,691 real changes made)
+variable mother_pid was byte now double
+(11,278 real changes made)
+  father_pid filled from backbone: 10691
+  mother_pid filled from backbone: 11278
+  10,691
+  Final father_pid non-missing: 10691 / 27001
+  11,278
+  Final mother_pid non-missing: 11278 / 27001
+  (0 bytes saved)
+file /Users/huy/cfps_fertility_project/data/clean/person_2022.dta saved
+  Saved: /Users/huy/cfps_fertility_project/data/clean/person_2022.dta
+
+. 
+. display _newline "02_build_kinship_backbone complete."
+
+02_build_kinship_backbone complete.
+
+. 
+end of do-file
+
+. 
+. *******************************************************
+. * 6. Build parental sibship variables
+. *******************************************************
+. 
+. display "Building parental sibship variables..."
+Building parental sibship variables...
+
+. do "$DO/03_parent_sibship.do"
+
+. *******************************************************
+. * File:    03_parent_sibship.do
+. * Purpose: Construct parental sibship variables for each backbone PID.
+. *
+. * ── IDENTIFICATION STRATEGY ─────────────────────────────
+. *
+. *   Source: qb1 from the 2010 CFPS adult dataset.
+. *
+. *   qb1 = number of siblings reported by the respondent.
+. *         Does NOT include the respondent themselves.
+. *         No subtraction needed.
+. *
+. *   Linkage:
+. *     For each focal individual in the backbone,
+. *     look up qb1 for father_pid and mother_pid
+. *     from the 2010 adult file.
+. *     This gives father_sib and mother_sib directly.
+. *
+. * ── DATA FLOW ────────────────────────────────────────────
+. *
+. *   PHASE A — BUILD qb1_lookup TEMPFILE
+. *     Active dataset: backbone (loaded first).
+. *     The lookup is built inside a preserve/restore block
+. *     so the backbone remains in memory.
+. *     qb1_lookup schema:  pid → qb1
+. *
+. *   PHASE B — MERGE ONTO BACKBONE
+. *     Explicit reload of backbone_master before merges.
+. *     All merges use the gen / merge / drop pattern:
+. *         gen  parent_pid = father_pid   ← copy; source untouched
+. *         merge m:1 parent_pid using `qb1_lookup'
+. *         rename qb1 father_sib
+. *         drop parent_pid
+. *     father_pid and mother_pid are NEVER renamed.
+. *
+. *   PHASE C — CONSTRUCT TREATMENT VARIABLES
+. *     father_multisib, mother_multisib, parent_multisib.
+. *
+. *   PHASE D — DIAGNOSTICS
+. *     Reload saved file; no risk of corrupting output.
+. *
+. * Input:   $CONS/kinship_backbone.dta
+. *          $RAW/2010/cfps2010adult_201906.dta
+. *
+. * Output:  $CONS/parent_sibship.dta
+. *          Variables (one row per pid):
+. *
+. *   Parental sibling counts (from qb1)
+. *     father_sib, mother_sib
+. *
+. *   Binary parental-multisib indicators
+. *     father_multisib, mother_multisib
+. *
+. *   Main treatment variable
+. *     parent_multisib    ← MAIN DiD TREATMENT
+. *
+. *   Linkage flags
+. *     has_father_link, has_mother_link
+. *
+. * Updated: 2026-04-20
+. *   — Complete rewrite: replaced grandparent/two-hop approach
+. *     with direct qb1 lookup from 2010 adult dataset.
+. *   — All *_gp, *_2hop, hop1/hop2, grandparent, and
+. *     rep_children logic removed.
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Building parental sibship (qb1-based)..."
+Building parental sibship (qb1-based)...
+
+. 
+. local pid_min = 100000000
+
+. 
+. * ═══════════════════════════════════════════════════════════
+. * PHASE A: LOAD BACKBONE AND BUILD qb1_lookup TEMPFILE
+. *
+. *   Active dataset: backbone throughout Phase A.
+. *   The lookup is built inside a preserve/restore block.
+. * ═══════════════════════════════════════════════════════════
+. 
+. * ─────────────────────────────────────────────────────────
+. * 0. Load backbone; record baseline counts; save to
+. *    backbone_master tempfile for the explicit Phase B reload.
+. *
+. *    Active dataset: backbone (pid, father_pid, mother_pid)
+. * ─────────────────────────────────────────────────────────
+. use "$CONS/kinship_backbone.dta", clear
+
+. isid pid
+
+. local N_bb = _N
+
+. 
+. display "  Backbone loaded: `N_bb' unique PIDs"
+  Backbone loaded: 79392 unique PIDs
+
+. count if !missing(father_pid)
+  34,368
+
+. local n0_f = r(N)
+
+. display "  father_pid non-missing: `n0_f'"
+  father_pid non-missing: 34368
+
+. count if !missing(mother_pid)
+  36,221
+
+. local n0_m = r(N)
+
+. display "  mother_pid non-missing: `n0_m'"
+  mother_pid non-missing: 36221
+
+. 
+. tempfile backbone_master
+
+. save `backbone_master'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000001 saved as .dta format
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 1. Build qb1_lookup tempfile
+. *
+. *    Source:  $RAW/2010/cfps2010adult_201906.dta
+. *    Key:     pid
+. *    Returns: qb1  (number of siblings; does not include self)
+. *
+. *    Sentinel recodes (standard CFPS convention):
+. *      All negative codes → missing  (covers −1 不适用,
+. *      −2 拒绝回答, −8 不知道, and any other negative flag)
+. *      77 / 78 / 79 → missing  (CFPS non-substantive codes
+. *      used in some count variables for 不知道/拒绝/不适用)
+. *
+. *    isid pid: guard before saving.
+. *
+. *    Active dataset going in:  backbone
+. *    Active dataset coming out: backbone  (restored)
+. * ─────────────────────────────────────────────────────────
+. preserve
+
+.     * In memory: backbone — replaced by 2010 adult load below,
+.     * but backbone is restored when this block exits.
+.     use pid qb1 using "$RAW/2010/cfps2010adult_201906.dta", clear
+
+. 
+.     * Recode non-substantive sentinels to missing
+.         * qb1 = respondent's number of siblings; excludes self
+.     * negative values are non-substantive responses:
+.     * -8 not applicable, -2 refusal, -1 don't know
+.     replace qb1 = . if qb1 < 0
+(415 real changes made, 415 to missing)
+
+. 
+.     * Drop records with missing pid
+.     drop if missing(pid) | pid < `pid_min'
+(0 observations deleted)
+
+. 
+.     * In the 2010 adult file, pid should already be unique.
+.     * If duplicates exist (unlikely), keep first non-missing qb1.
+.     sort pid qb1
+
+.     by pid: keep if _n == 1
+(0 observations deleted)
+
+. 
+.     rename pid parent_pid
+
+.     isid parent_pid
+
+.     sort parent_pid
+
+. 
+.     tempfile qb1_lookup
+
+.     save `qb1_lookup'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000003 saved as .dta format
+
+.     * qb1_lookup schema: parent_pid | qb1
+. 
+.     count
+  33,600
+
+.     display "  qb1_lookup: " r(N) " unique parent PIDs"
+  qb1_lookup: 33600 unique parent PIDs
+
+.     count if !missing(qb1)
+  33,185
+
+.     display "  qb1_lookup: " r(N) " with non-missing qb1"
+  qb1_lookup: 33185 with non-missing qb1
+
+. restore
+
+. 
+. * ← backbone back in memory
+. 
+. display "  qb1_lookup tempfile built."
+  qb1_lookup tempfile built.
+
+. 
+. * ═══════════════════════════════════════════════════════════
+. * PHASE B: MERGE qb1 ONTO BACKBONE
+. *
+. *   Explicit reload of backbone_master removes any ambiguity
+. *   about what is in memory.
+. * ═══════════════════════════════════════════════════════════
+. 
+. * ─────────────────────────────────────────────────────────
+. * 2. Reload backbone — explicit safety reset
+. *    Active dataset after this line: backbone
+. * ─────────────────────────────────────────────────────────
+. use `backbone_master', clear
+
+. assert _N == `N_bb'
+
+. display "  Phase B: backbone reloaded. N = `N_bb'"
+  Phase B: backbone reloaded. N = 79392
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3. Merge father's qb1
+. *
+. *    Merge key: parent_pid = gen copy of father_pid
+. *    father_pid is NEVER renamed.
+. * ─────────────────────────────────────────────────────────
+. gen parent_pid = father_pid
+(45,024 missing values generated)
+
+. merge m:1 parent_pid using `qb1_lookup', keep(master match) nogenerate
+(variable parent_pid was float, now double to accommodate using data's values)
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        76,603
+        from master                    76,603  
+        from using                          0  
+
+    Matched                             2,789  
+    -----------------------------------------
+
+. rename qb1 father_sib
+
+. drop parent_pid
+
+. 
+. count if !missing(father_sib)
+  2,755
+
+. local n_f = r(N)
+
+. display "  father_sib resolved: `n_f' / `N_bb' (" ///
+>     %5.1f `n_f'/`N_bb'*100 "%)"
+  father_sib resolved: 2755 / 79392 (  3.5%)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 4. Merge mother's qb1
+. *
+. *    Merge key: parent_pid = gen copy of mother_pid
+. *    mother_pid is NEVER renamed.
+. * ─────────────────────────────────────────────────────────
+. gen parent_pid = mother_pid
+(43,171 missing values generated)
+
+. merge m:1 parent_pid using `qb1_lookup', keep(master match) nogenerate
+(variable parent_pid was float, now double to accommodate using data's values)
+(label pid already defined)
+(label qb1 already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        76,402
+        from master                    76,402  
+        from using                          0  
+
+    Matched                             2,990  
+    -----------------------------------------
+
+. rename qb1 mother_sib
+
+. drop parent_pid
+
+. 
+. count if !missing(mother_sib)
+  2,950
+
+. local n_m = r(N)
+
+. display "  mother_sib resolved: `n_m' / `N_bb' (" ///
+>     %5.1f `n_m'/`N_bb'*100 "%)"
+  mother_sib resolved: 2950 / 79392 (  3.7%)
+
+. 
+. * ═══════════════════════════════════════════════════════════
+. * PHASE C: CONSTRUCT TREATMENT VARIABLES
+. * ═══════════════════════════════════════════════════════════
+. 
+. * ─────────────────────────────────────────────────────────
+. * 5. Binary parental-multisib indicators
+. *
+. *    multisib = 1 if qb1 >= 1 (at least one sibling)
+. *             = 0 if qb1 == 0 (only child)
+. *             = . if qb1 missing (linkage failed)
+. *
+. *    CAUTION: Stata evaluates (x >= 1) as TRUE when x is missing
+. *    (missing treated as +infinity). The !missing() guard is required.
+. * ─────────────────────────────────────────────────────────
+. gen father_multisib = .
+(79,392 missing values generated)
+
+. replace father_multisib = 0 if father_sib == 0
+(194 real changes made)
+
+. replace father_multisib = 1 if father_sib >= 1 & !missing(father_sib)
+(2,561 real changes made)
+
+. 
+. gen mother_multisib = .
+(79,392 missing values generated)
+
+. replace mother_multisib = 0 if mother_sib == 0
+(217 real changes made)
+
+. replace mother_multisib = 1 if mother_sib >= 1 & !missing(mother_sib)
+(2,733 real changes made)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 6. Main parental treatment: parent_multisib  ← MAIN DiD TREATMENT
+. *
+. *    = 1 if father_multisib == 1 OR mother_multisib == 1
+. *          (one-side fill: single observed-1 is sufficient)
+. *    = 0 if father_multisib == 0 AND mother_multisib == 0
+. *          (both must confirm only-child)
+. *    = . otherwise (neither parent resolved, or mixed 0/missing)
+. * ─────────────────────────────────────────────────────────
+. gen parent_multisib = .
+(79,392 missing values generated)
+
+. replace parent_multisib = 1 if father_multisib == 1 | mother_multisib == 1
+(3,129 real changes made)
+
+. replace parent_multisib = 0 if father_multisib == 0 & mother_multisib == 0
+(166 real changes made)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 7. Linkage flags
+. * ─────────────────────────────────────────────────────────
+. gen has_father_link = !missing(father_pid)
+
+. gen has_mother_link = !missing(mother_pid)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 8. Variable labels
+. * ─────────────────────────────────────────────────────────
+. label variable father_sib ///
+>     "Father's sibling count [orig: qb1 in 2010 adult; does not include father himself]"
+note: label truncated to 80 characters
+
+. label variable mother_sib ///
+>     "Mother's sibling count [orig: qb1 in 2010 adult; does not include mother herself]"
+note: label truncated to 80 characters
+
+. label variable father_multisib ///
+>     "Father had ≥1 sibling per 2010 qb1 (0/1/.)"
+
+. label variable mother_multisib ///
+>     "Mother had ≥1 sibling per 2010 qb1 (0/1/.)"
+
+. label variable parent_multisib ///
+>     "MAIN DiD treatment: any observed parent had ≥1 sibling [OR, one-side fill] (0/1/.)"
+note: label truncated to 80 characters
+
+. label variable has_father_link ///
+>     "1 if father_pid non-missing in backbone"
+
+. label variable has_mother_link ///
+>     "1 if mother_pid non-missing in backbone"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 9. Validate: row count and pid uniqueness unchanged
+. * ─────────────────────────────────────────────────────────
+. assert _N == `N_bb'
+
+. isid pid
+
+. display "  OK: pid uniqueness preserved. N = `N_bb'"
+  OK: pid uniqueness preserved. N = 79392
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 10. Save
+. * ─────────────────────────────────────────────────────────
+. compress
+  variable father_multisib was float now byte
+  variable mother_multisib was float now byte
+  variable parent_multisib was float now byte
+  variable has_father_link was float now byte
+  variable has_mother_link was float now byte
+  variable father_sib was double now byte
+  variable mother_sib was double now byte
+  (2,302,368 bytes saved)
+
+. save "$CONS/parent_sibship.dta", replace
+file /Users/huy/cfps_fertility_project/data/constructed/parent_sibship.dta saved
+
+. display "Saved: $CONS/parent_sibship.dta"
+Saved: /Users/huy/cfps_fertility_project/data/constructed/parent_sibship.dta
+
+. 
+. * ═══════════════════════════════════════════════════════════
+. * PHASE D: DIAGNOSTICS
+. *   Reload saved file — cannot corrupt output.
+. * ═══════════════════════════════════════════════════════════
+. 
+. use "$CONS/parent_sibship.dta", clear
+
+. 
+. display _newline "=================================================="
+
+==================================================
+
+. display "  PARENT SIBSHIP DIAGNOSTICS"
+  PARENT SIBSHIP DIAGNOSTICS
+
+. display "=================================================="
+==================================================
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 11a. Non-missing counts
+. * ─────────────────────────────────────────────────────────
+. display _newline "  [A] NON-MISSING COUNTS (all backbone PIDs, N = `N_bb')"
+
+  [A] NON-MISSING COUNTS (all backbone PIDs, N = 79392)
+
+. 
+. count if !missing(father_sib)
+  2,755
+
+. display "  father_sib:       " r(N) " (" %5.1f r(N)/`N_bb'*100 "%)"
+  father_sib:       2755 (  3.5%)
+
+. count if !missing(mother_sib)
+  2,950
+
+. display "  mother_sib:       " r(N) " (" %5.1f r(N)/`N_bb'*100 "%)"
+  mother_sib:       2950 (  3.7%)
+
+. count if !missing(parent_multisib)
+  3,295
+
+. display "  parent_multisib:  " r(N) " (" %5.1f r(N)/`N_bb'*100 "%)"
+  parent_multisib:  3295 (  4.2%)
+
+. 
+. * Unique individuals
+. count
+  79,392
+
+. display "  Total backbone rows: " r(N)
+  Total backbone rows: 79392
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 11b. Treatment balance
+. * ─────────────────────────────────────────────────────────
+. display _newline "  [B] TREATMENT BALANCE: parent_multisib"
+
+  [B] TREATMENT BALANCE: parent_multisib
+
+. tabulate parent_multisib, missing
+
+   MAIN DiD |
+ treatment: |
+        any |
+   observed |
+ parent had |
+         ≥1 |
+    sibling |
+       [OR, |
+   one-side |
+fill] (0/1/ |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        166        0.21        0.21
+          1 |      3,129        3.94        4.15
+          . |     76,097       95.85      100.00
+------------+-----------------------------------
+      Total |     79,392      100.00
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 11c. Sibling count distributions
+. * ─────────────────────────────────────────────────────────
+. display _newline "  [C] SIBLING COUNT DISTRIBUTIONS"
+
+  [C] SIBLING COUNT DISTRIBUTIONS
+
+. summarize father_sib mother_sib, detail
+
+      Father's sibling count [orig: qb1 in 2010 adult;
+               does not include father himself
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%            1              0       Obs               2,755
+25%            1              0       Sum of wgt.       2,755
+
+50%            2                      Mean           2.063158
+                        Largest       Std. dev.      1.468504
+75%            3              8
+90%            4              8       Variance       2.156503
+95%            5              8       Skewness       1.161028
+99%            7              9       Kurtosis       4.287965
+
+      Mother's sibling count [orig: qb1 in 2010 adult;
+               does not include mother herself
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%            1              0       Obs               2,950
+25%            1              0       Sum of wgt.       2,950
+
+50%            2                      Mean           2.064746
+                        Largest       Std. dev.       1.46817
+75%            3              8
+90%            4              8       Variance       2.155522
+95%            5              9       Skewness       1.169592
+99%            6              9       Kurtosis       4.430291
+
+. 
+. * Tabulate sibling counts up to 10 (flag any implausible values)
+. display _newline "  -- father_sib distribution (values 0–10) --"
+
+  -- father_sib distribution (values 0–10) --
+
+. tabulate father_sib if father_sib <= 10, missing
+
+   Father's |
+    sibling |
+      count |
+ [orig: qb1 |
+    in 2010 |
+adult; does |
+not include |
+     father |
+    himself |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        194        7.04        7.04
+          1 |      1,007       36.55       43.59
+          2 |        767       27.84       71.43
+          3 |        356       12.92       84.36
+          4 |        199        7.22       91.58
+          5 |        150        5.44       97.02
+          6 |         54        1.96       98.98
+          7 |         20        0.73       99.71
+          8 |          7        0.25       99.96
+          9 |          1        0.04      100.00
+------------+-----------------------------------
+      Total |      2,755      100.00
+
+. 
+. display _newline "  -- mother_sib distribution (values 0–10) --"
+
+  -- mother_sib distribution (values 0–10) --
+
+. tabulate mother_sib if mother_sib <= 10, missing
+
+   Mother's |
+    sibling |
+      count |
+ [orig: qb1 |
+    in 2010 |
+adult; does |
+not include |
+     mother |
+    herself |      Freq.     Percent        Cum.
+------------+-----------------------------------
+          0 |        217        7.36        7.36
+          1 |      1,044       35.39       42.75
+          2 |        859       29.12       71.86
+          3 |        362       12.27       84.14
+          4 |        222        7.53       91.66
+          5 |        164        5.56       97.22
+          6 |         53        1.80       99.02
+          7 |         17        0.58       99.59
+          8 |         10        0.34       99.93
+          9 |          2        0.07      100.00
+------------+-----------------------------------
+      Total |      2,950      100.00
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 11d. Cohort 1975–1984 coverage
+. * ─────────────────────────────────────────────────────────
+. display _newline "  [D] COHORT 1975–1984 COVERAGE"
+
+  [D] COHORT 1975–1984 COVERAGE
+
+. 
+. preserve
+
+.     foreach yr in 2010 2012 2014 2016 2018 2020 2022 {
+  2.         use pid birth_year using "$CLEAN/person_`yr'.dta", clear
+  3.         keep if !missing(pid) & pid >= `pid_min'
+  4.         tempfile byr`yr'
+  5.         save `byr`yr''
+  6.     }
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000005 saved as .dta format
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000006 saved as .dta format
+(2,621 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000007 saved as .dta format
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000008 saved as .dta format
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000009 saved as .dta format
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000a saved as .dta format
+(0 observations deleted)
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000b saved as .dta format
+
+.     use `byr2010', clear
+
+.     foreach yr in 2012 2014 2016 2018 2020 2022 {
+  2.         append using `byr`yr''
+  3.     }
+(label pid already defined)
+(variable pid was long, now double to accommodate using data's values)
+(label pid already defined)
+(label pid already defined)
+(label cfps_birthy already defined)
+(label pid already defined)
+(label ibirthy_update already defined)
+(label pid already defined)
+(label ibirthy_update already defined)
+(label pid already defined)
+
+.     keep if !missing(birth_year)
+(6,891 observations deleted)
+
+.     collapse (firstnm) birth_year, by(pid)
+
+.     tempfile byears
+
+.     save `byears'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000c saved as .dta format
+
+. restore
+
+. 
+. merge 1:1 pid using `byears', keep(master match) nogenerate
+(label pid already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                        20,165
+        from master                    20,165  
+        from using                          0  
+
+    Matched                            59,227  
+    -----------------------------------------
+
+. gen _in_cohort = (birth_year >= 1975 & birth_year <= 1984 & !missing(birth_year))
+
+. 
+. count if _in_cohort
+  8,101
+
+. local n_coh = r(N)
+
+. 
+. if `n_coh' == 0 {
+.     display "  WARNING: No cohort PIDs matched."
+. }
+
+. else {
+.     display "  Backbone PIDs in cohort 1975–1984: `n_coh'"
+  Backbone PIDs in cohort 1975–1984: 8101
+.     count if _in_cohort & !missing(parent_multisib)
+  375
+.     local n_treat = r(N)
+.     display "  With valid parent_multisib: `n_treat' (" ///
+>         %5.1f `n_treat'/`n_coh'*100 "%)"
+  With valid parent_multisib: 375 (  4.6%)
+.     count if _in_cohort & parent_multisib == 1
+  339
+.     display "  Treated (parent_multisib = 1): " r(N)
+  Treated (parent_multisib = 1): 339
+.     count if _in_cohort & parent_multisib == 0
+  36
+.     display "  Control  (parent_multisib = 0): " r(N)
+  Control  (parent_multisib = 0): 36
+.     count if _in_cohort & missing(parent_multisib)
+  7,726
+.     display "  Unresolved (parent_multisib = .): " r(N)
+  Unresolved (parent_multisib = .): 7726
+. }
+
+. 
+. display "=================================================="
+==================================================
+
+. display _newline "03_parent_sibship complete."
+
+03_parent_sibship complete.
+
+. 
+end of do-file
+
+. 
+. *******************************************************
+. * 7. Build final analysis panel
+. *******************************************************
+. 
+. display "Building final analysis panel..."
+Building final analysis panel...
+
+. do "$DO/04_make_analysis_panel.do"
+
+. *******************************************************
+. * File:    04_make_analysis_panel.do
+. * Purpose: Build the DiD-ready estimation dataset.
+. *
+. *          Pools 7 clean waves into a pid×year long panel,
+. *          merges time-invariant parental sibship treatment,
+. *          restricts to the 1975–1984 analysis cohort,
+. *          and generates post2016.
+. *
+. *          Interaction terms and event-study dummies are NOT
+. *          pre-computed here. Use Stata factor-variable syntax
+. *          (##) in 05_analysis.do instead.
+. *
+. * Input:   $CLEAN/person_{wave}.dta   (7 waves: 2010–2022)
+. *          $CONS/parent_sibship.dta   (one row per pid)
+. *
+. * Output:  $ANLY/did_panel.dta
+. *              Unit of observation: pid × year
+. *              Sample: birth_year 1975–1984
+. *
+. * Variables in final dataset:
+. *   IDs:       pid  fid  provcd
+. *   Time:      year  wave
+. *   Cohort:    birth_year  gender  ethnicity
+. *   Outcomes:  children  has2plus
+. *   Treatment (MAIN — qb1-based parental sibship):
+. *              parent_multisib   ← MAIN DiD treatment (any-parent OR)
+. *              father_sib        — father's sibling count (qb1)
+. *              mother_sib        — mother's sibling count (qb1)
+. *              father_multisib   — father binary (sib>=1)
+. *              mother_multisib   — mother binary (sib>=1)
+. *   Derived:   age  post2016
+. *   Controls:  marital_status  edu_level  years_schooling
+. *              income  employ  urban
+. *   Selection: has_father_link  has_mother_link
+. *
+. * Also included (linkage / diagnostic):
+. *   father_pid  mother_pid   — parent PIDs from backbone (mostly useful for
+. *                              diagnostics; may be missing for 2016+ respondents)
+. *   did_*  es_*  wave_YYYY   — use factor variables in estimation instead
+. *
+. * Merge key: pid (m:1 from parent_sibship into long panel)
+. *
+. * Updated: 2026-04-20 (rewritten for qb1-based parental sibship from 2010 adult)
+. *******************************************************
+. 
+. clear all
+
+. set more off
+
+. 
+. display "Building DiD analysis panel..."
+Building DiD analysis panel...
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 1. Append all 7 clean person files into a long panel
+. *
+. *    Only variables needed for analysis are kept.
+. *    Intermediate parent/grandparent PID columns are excluded.
+. * ─────────────────────────────────────────────────────────
+. 
+. local keep_vars pid fid provcd wave year ///
+>     birth_year gender ethnicity ///
+>     children has2plus ///
+>     father_pid mother_pid ///
+>     marital_status edu_level years_schooling ///
+>     income employ urban own_sib ka205
+
+. 
+. * Load 2010 as base
+. use "$CLEAN/person_2010.dta", clear
+
+. local keep_this ""
+
+. foreach v of local keep_vars {
+  2.     capture confirm variable `v'
+  3.     if !_rc local keep_this `keep_this' `v'
+  4. }
+
+. keep `keep_this'
+
+. local N_2010 = _N
+
+. display "  2010: `N_2010' obs"
+  2010: 33600 obs
+
+. 
+. * Append 2012–2022
+. foreach yr in 2012 2014 2016 2018 2020 2022 {
+  2.     preserve
+  3.     use "$CLEAN/person_`yr'.dta", clear
+  4.     local keep_this ""
+  5.     foreach v of local keep_vars {
+  6.         capture confirm variable `v'
+  7.         if !_rc local keep_this `keep_this' `v'
+  8.     }
+  9.     keep `keep_this'
+ 10.     tempfile w`yr'
+ 11.     save `w`yr''
+ 12.     restore
+ 13.     append using `w`yr''
+ 14.     display "  After appending `yr': " _N " obs"
+ 15. }
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000002 saved as .dta format
+(label pid_m already defined)
+(label pid_f already defined)
+(label income already defined)
+(label provcd already defined)
+(label pid already defined)
+  After appending 2012: 69319 obs
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000004 saved as .dta format
+(variable pid was long, now double to accommodate using data's values)
+(variable father_pid was long, now double to accommodate using data's values)
+(variable mother_pid was long, now double to accommodate using data's values)
+(label income already defined)
+(label cfps_minzu already defined)
+(label pid_m already defined)
+(label pid_f already defined)
+(label pid already defined)
+  After appending 2014: 109087 obs
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000006 saved as .dta format
+(label pid already defined)
+(label cfps_birthy already defined)
+(label cfps_gender already defined)
+(label qea0 already defined)
+(label employ already defined)
+(label income already defined)
+  After appending 2016: 145979 obs
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.000008 saved as .dta format
+(label income already defined)
+(label employ already defined)
+(label qea0 already defined)
+(label gender already defined)
+(label pid already defined)
+  After appending 2018: 183333 obs
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000a saved as .dta format
+(label employ already defined)
+(label qea0 already defined)
+(label ibirthy_update already defined)
+(label minzu already defined)
+(label gender already defined)
+(label pid already defined)
+  After appending 2020: 211863 obs
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000c saved as .dta format
+(label emp_income already defined)
+(label employ already defined)
+(label qea0 already defined)
+(label ibirthy_update already defined)
+(label minzu already defined)
+(label gender already defined)
+(label pid already defined)
+  After appending 2022: 238864 obs
+
+. 
+. local N_adult_raw = _N
+
+. display "  Pooled adult waves (all cohorts): `N_adult_raw' obs"
+  Pooled adult waves (all cohorts): 238864 obs
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 1b. Append child questionnaire files
+. *     child_2012.dta (wka202) and child_2020.dta (ka205)
+. *     These respondents have their own PIDs and are appended
+. *     as additional rows; wave-specific vars missing elsewhere.
+. * ─────────────────────────────────────────────────────────
+. 
+. local child_keep pid fid provcd wave year ///
+>     birth_year gender ethnicity ///
+>     children has2plus ///
+>     marital_status edu_level years_schooling ///
+>     income employ urban ///
+>     father_pid mother_pid ///
+>     wka202
+
+. 
+. foreach cwave in 2012 2020 {
+  2.     capture confirm file "$CLEAN/child_`cwave'.dta"
+  3.     if !_rc {
+  4.         preserve
+  5.         use "$CLEAN/child_`cwave'.dta", clear
+  6.         local keep_c ""
+  7.         foreach v of local child_keep {
+  8.             capture confirm variable `v'
+  9.             if !_rc local keep_c `keep_c' `v'
+ 10.         }
+ 11.         keep `keep_c'
+ 12.         tempfile wc`cwave'
+ 13.         save `wc`cwave''
+ 14.         restore
+ 15.         append using `wc`cwave''
+ 16.         display "  After appending child_`cwave': " _N " obs"
+ 17.     }
+ 18.     else {
+ 19.         display as text "  NOTE: $CLEAN/child_`cwave'.dta not found — skipping"
+ 20.     }
+ 21. }
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000e saved as .dta format
+(label pid already defined)
+(label fid12 already defined)
+(label provcd already defined)
+(label cfps_minzu already defined)
+(label cfps2012_gender_best already defined)
+(label cfps2012_birthy_best already defined)
+(label urban12 already defined)
+  After appending child_2012: 247484 obs
+  NOTE: /Users/huy/cfps_fertility_project/data/clean/child_2020.dta not found — skipping
+
+. 
+. local N_all_raw = _N
+
+. display "  Pooled (adult + child waves): `N_all_raw' obs"
+  Pooled (adult + child waves): 247484 obs
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 2. Drop missing/invalid pid
+. *    Handles 2014 non-core household members (pid = .)
+. * ─────────────────────────────────────────────────────────
+. local pid_min = 100000000
+
+. drop if missing(pid) | pid < `pid_min'
+(2,621 observations deleted)
+
+. local N_valid_pid = _N
+
+. display "  After dropping missing/invalid pid: `N_valid_pid' obs"
+  After dropping missing/invalid pid: 244863 obs
+
+. display "  Obs dropped (invalid pid): " (`N_all_raw' - `N_valid_pid')
+  Obs dropped (invalid pid): 2621
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 3. [No cohort restriction here]
+. *    The full cross-cohort panel is kept so that 05_analysis.do
+. *    can apply sample restrictions (e.g. birth_year 1975–1984)
+. *    in one place and vary them for sensitivity checks.
+. * ─────────────────────────────────────────────────────────
+. display "  Full panel retained (no cohort restriction in 04)"
+  Full panel retained (no cohort restriction in 04)
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 4. Merge parental sibship (time-invariant treatment)
+. *    Merge key: pid (m:1)
+. *    keep(master match): individuals not in backbone keep their
+. *    rows but receive missing treatment values.
+. *    No observation loss expected from this merge.
+. * ─────────────────────────────────────────────────────────
+. merge m:1 pid using "$CONS/parent_sibship.dta", ///
+>     keepusing(parent_multisib                                       ///
+>               father_sib        mother_sib                          ///
+>               father_multisib   mother_multisib                     ///
+>               has_father_link   has_mother_link)                    ///
+>     keep(master match) nogenerate
+(label pid already defined)
+(label qb1 already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                           244,863  
+    -----------------------------------------
+
+. 
+. * Verify no unexpected obs loss
+. local N_post_merge = _N
+
+. if `N_post_merge' != `N_valid_pid' {
+.     display as error "WARNING: unexpected obs change in sibship merge."
+.     display as error "  Before: `N_valid_pid'  After: `N_post_merge'"
+. }
+
+. else {
+.     display "  Sibship merge: no obs lost (as expected). N = `N_post_merge'"
+  Sibship merge: no obs lost (as expected). N = 244863
+. }
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 4b. Supplement sibship for child respondents
+. *     backbone-based parent_sibship.dta does not cover
+. *     children in the child questionnaire (pid_f/pid_m are
+. *     not in the adult backbone). Backfill using the direct
+. *     pid_f/pid_m merge output from 99_diagnose_child_sibship.
+. *
+. *     Strategy: replace only where currently missing.
+. *     Adult rows already resolved by Step 4 are untouched.
+. * ─────────────────────────────────────────────────────────
+. capture confirm file "$CONS/child_parentsib_2012.dta"
+
+. if !_rc {
+.     * Load supplement: pid + sib vars only
+.     preserve
+.     use pid father_sib mother_sib ///
+>         father_multisib mother_multisib parent_multisib ///
+>         using "$CONS/child_parentsib_2012.dta", clear
+.     * Rename to avoid collision with existing vars during merge
+.     foreach v in father_sib mother_sib ///
+>                  father_multisib mother_multisib parent_multisib {
+  2.         rename `v' _supp_`v'
+  3.     }
+.     tempfile child_sib_supp
+.     save `child_sib_supp'
+file /var/folders/gl/_vv5lp2j7q1gxlqws66vr5z40000gn/T//S_59808.00000g saved as .dta format
+.     restore
+. 
+.     merge m:1 pid using `child_sib_supp', keep(master match) nogenerate
+(label pid already defined)
+(label qb1 already defined)
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                       235,707
+        from master                   235,707  
+        from using                          0  
+
+    Matched                             9,156  
+    -----------------------------------------
+. 
+.     * Backfill: only replace where backbone merge left missing
+.     foreach v in father_sib mother_sib ///
+>                  father_multisib mother_multisib parent_multisib {
+  2.         replace `v' = _supp_`v' if missing(`v') & !missing(_supp_`v')
+  3.         drop _supp_`v'
+  4.     }
+(6,043 real changes made)
+(6,747 real changes made)
+(6,043 real changes made)
+(6,747 real changes made)
+(7,303 real changes made)
+. 
+.     count if !missing(father_sib)
+  14,650
+.     display "  After child supplement — father_sib non-missing: " r(N)
+  After child supplement — father_sib non-missing: 14650
+.     count if !missing(mother_sib)
+  16,047
+.     display "  After child supplement — mother_sib non-missing: " r(N)
+  After child supplement — mother_sib non-missing: 16047
+.     count if !missing(parent_multisib)
+  16,758
+.     display "  After child supplement — parent_multisib resolved: " r(N)
+  After child supplement — parent_multisib resolved: 16758
+. }
+
+. else {
+.     display as text "  NOTE: child_parentsib_2012.dta not found — skipping supplement."
+.     display as text "        Run 99_diagnose_child_sibship.do first to generate it."
+. }
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 5. Derived variables
+. * ─────────────────────────────────────────────────────────
+. 
+. * Age at survey
+. gen age = wave - birth_year
+(6,891 missing values generated)
+
+. label variable age "Age at survey (wave - birth_year)"
+
+. 
+. * Post-treatment indicator
+. * Use year (== wave in CFPS) to align with standard DiD convention
+. gen post2016 = (year >= 2016)
+
+. label variable post2016 "Post two-child policy: 1 if year >= 2016"
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 6. Variable labels
+. * ─────────────────────────────────────────────────────────
+. label variable pid             "Individual PID"
+
+. label variable fid             "Household ID (wave-specific)"
+
+. label variable provcd          "Province code"
+
+. label variable wave            "CFPS wave year"
+
+. label variable year            "Survey year"
+
+. label variable birth_year      "Birth year"
+
+. label variable gender          "Gender"
+
+. label variable ethnicity       "Ethnicity code"
+
+. label variable age             "Age at survey"
+
+. label variable children        "Number of children at survey"
+
+. label variable has2plus        "Has 2+ children (0/1)"
+
+. * Main treatment (qb1-based parental sibship)
+. label variable parent_multisib   "MAIN DiD treatment: any observed parent had ≥1 sibling [qb1, OR] (0/1/.)"
+
+. label variable father_sib        "Father's sibling count [orig: qb1, 2010 adult]"
+
+. label variable mother_sib        "Mother's sibling count [orig: qb1, 2010 adult]"
+
+. label variable father_multisib   "Father had ≥1 sibling per 2010 qb1 (0/1/.)"
+
+. label variable mother_multisib   "Mother had ≥1 sibling per 2010 qb1 (0/1/.)"
+
+. capture label variable father_pid        "Father PID [from backbone; 2010/2012/2014 from adult file; 2016+ from fam
+> conf]"
+
+. capture label variable mother_pid        "Mother PID [from backbone; 2010/2012/2014 from adult file; 2016+ from fam
+> conf]"
+
+. label variable has_father_link   "1 if father_pid non-missing in backbone"
+
+. label variable has_mother_link   "1 if mother_pid non-missing in backbone"
+
+. label variable marital_status  "Current marital status"
+
+. label variable edu_level       "Highest education level"
+
+. label variable years_schooling "Years of schooling"
+
+. label variable income          "Individual income (annual)"
+
+. label variable employ          "Currently employed (1/0)"
+
+. label variable urban           "Urban: NBS classification"
+
+. capture label variable own_sib "Number of siblings (self-reported, 2010) [orig: qb1; 2010 wave only]"
+
+. capture label variable ka205   "ka205 [orig: qka205; 2020 adult wave only]"
+
+. 
+. 
+. * ─────────────────────────────────────────────────────────
+. * 7. Validate panel structure
+. * ─────────────────────────────────────────────────────────
+. 
+. * 7a. Check for duplicate pid × year combinations
+. duplicates report pid year
+
+Duplicates in terms of pid year
+
+--------------------------------------
+   Copies | Observations       Surplus
+----------+---------------------------
+        1 |       244863             0
+--------------------------------------
+
+. if r(N) != _N {
+.     display as error "ERROR: duplicate pid × year rows detected. Investigate before saving."
+.     error 1
+. }
+
+. 
+. * 7b. Confirm pid × year is unique identifier
+. isid pid year
+
+. display "  OK: pid × year is unique identifier"
+  OK: pid × year is unique identifier
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 8. Order variables and save
+. * ─────────────────────────────────────────────────────────
+. order pid fid provcd wave year birth_year gender ethnicity age ///
+>       post2016 ///
+>       children has2plus ///
+>       father_pid mother_pid ///
+>       parent_multisib father_sib mother_sib father_multisib mother_multisib ///
+>       has_father_link has_mother_link ///
+>       marital_status edu_level years_schooling income employ urban
+
+. 
+. * Wave-specific variables: present only for their respective wave, missing otherwise
+. * own_sib: 2010 only  |  wka202: 2012 only  |  ka205: 2020 only
+. capture order own_sib wka202 ka205, last
+
+. 
+. compress
+  variable age was float now int
+  variable post2016 was float now byte
+  (1,224,315 bytes saved)
+
+. save "$ANLY/did_panel.dta", replace
+file /Users/huy/cfps_fertility_project/data/analysis/did_panel.dta saved
+
+. display "Saved: $ANLY/did_panel.dta"
+Saved: /Users/huy/cfps_fertility_project/data/analysis/did_panel.dta
+
+. 
+. * ─────────────────────────────────────────────────────────
+. * 9. SAMPLE SIZE REPORT
+. *    Runs after save — cannot corrupt output.
+. * ─────────────────────────────────────────────────────────
+. 
+. display _newline
+
+
+
+. display "=================================================="
+==================================================
+
+. display "  SAMPLE SIZE REPORT — did_panel.dta"
+  SAMPLE SIZE REPORT — did_panel.dta
+
+. display "=================================================="
+==================================================
+
+. 
+. * ── 9a. Overall panel ────────────────────────────────────
+. local N_total = _N
+
+. bysort pid: gen _pf = (_n == 1)
+
+. count if _pf
+  61,610
+
+. local N_indiv = r(N)
+
+. drop _pf
+
+. 
+. display _newline "  [1] OVERALL PANEL"
+
+  [1] OVERALL PANEL
+
+. display "  Total observations:       `N_total'"
+  Total observations:       244863
+
+. display "  Total unique individuals: `N_indiv'"
+  Total unique individuals: 61610
+
+. 
+. * ── 9b. DiD-usable sample ────────────────────────────────
+. count if !missing(parent_multisib) & !missing(children) & !missing(has2plus)
+  13,988
+
+. local N_did = r(N)
+
+. bysort pid: gen _pf2 = (_n == 1) if !missing(parent_multisib)
+(228,105 missing values generated)
+
+. count if _pf2 == 1
+  4,414
+
+. local N_did_indiv = r(N)
+
+. drop _pf2
+
+. 
+. display _newline "  [2] DiD-USABLE SAMPLE"
+
+  [2] DiD-USABLE SAMPLE
+
+. display "  (non-missing parent_multisib AND both outcomes)"
+  (non-missing parent_multisib AND both outcomes)
+
+. display "  Observations:  `N_did'"
+  Observations:  13988
+
+. display "  Individuals:   `N_did_indiv'"
+  Individuals:   4414
+
+. 
+. * ── 9c. Treatment coverage (all individuals) ──────────────
+. bysort pid: gen _pf3 = (_n == 1)
+
+. 
+. count if _pf3
+  61,610
+
+. local N_all_ind = r(N)
+
+. display _newline "  [3] TREATMENT COVERAGE (all individuals in panel)"
+
+  [3] TREATMENT COVERAGE (all individuals in panel)
+
+. display "  Total individuals:                `N_all_ind'"
+  Total individuals:                61610
+
+. display "  Total observations:               `N_total'"
+  Total observations:               244863
+
+. 
+. count if _pf3 & !missing(parent_multisib)
+  4,414
+
+. local n_with_treat = r(N)
+
+. display "  % with valid parent_multisib:     " ///
+>     %5.1f `n_with_treat'/`N_all_ind'*100 "% (`n_with_treat' individuals)"
+  % with valid parent_multisib:       7.2% (4414 individuals)
+
+. 
+. count if !missing(children) & !missing(has2plus)
+  235,091
+
+. local n_with_out = r(N)
+
+. display "  % obs with valid outcomes:        " ///
+>     %5.1f `n_with_out'/`N_total'*100 "% (`n_with_out' obs)"
+  % obs with valid outcomes:         96.0% (235091 obs)
+
+. 
+. drop _pf3
+
+. 
+. * ── 9d. Pre vs post ──────────────────────────────────────
+. count if post2016 == 0
+  115,086
+
+. local N_pre = r(N)
+
+. count if post2016 == 1
+  129,777
+
+. local N_post = r(N)
+
+. 
+. display _newline "  [4] PRE vs POST 2016"
+
+  [4] PRE vs POST 2016
+
+. display "  Pre-2016  (waves 2010 / 2012 / 2014): `N_pre'"
+  Pre-2016  (waves 2010 / 2012 / 2014): 115086
+
+. display "  Post-2016 (waves 2016 / 2018 / 2020 / 2022): `N_post'"
+  Post-2016 (waves 2016 / 2018 / 2020 / 2022): 129777
+
+. 
+. * ── 9e. Treatment vs control (at individual level) ───────
+. bysort pid: gen _pf4 = (_n == 1)
+
+. 
+. count if _pf4 & parent_multisib == 1
+  4,260
+
+. local N_treated = r(N)
+
+. count if _pf4 & parent_multisib == 0
+  154
+
+. local N_control = r(N)
+
+. count if _pf4 & missing(parent_multisib)
+  57,196
+
+. local N_miss_t  = r(N)
+
+. drop _pf4
+
+. 
+. display _newline "  [5] TREATMENT vs CONTROL (individual level)"
+
+  [5] TREATMENT vs CONTROL (individual level)
+
+. display "  parent_multisib = 1 (treated):        `N_treated'"
+  parent_multisib = 1 (treated):        4260
+
+. display "  parent_multisib = 0 (control):        `N_control'"
+  parent_multisib = 0 (control):        154
+
+. display "  parent_multisib = . (unresolved):     `N_miss_t'"
+  parent_multisib = . (unresolved):     57196
+
+. 
+. * ── 9f. Missing rates ────────────────────────────────────
+. display _newline "  [6] MISSING RATES (obs level)"
+
+  [6] MISSING RATES (obs level)
+
+. count if missing(parent_multisib)
+  228,105
+
+. display "  parent_multisib missing:   " r(N) " / `N_total' (" ///
+>     %5.1f r(N)/`N_total'*100 "%)"
+  parent_multisib missing:   228105 / 244863 ( 93.2%)
+
+. count if missing(father_sib)
+  230,213
+
+. display "  father_sib missing:        " r(N) " / `N_total' (" ///
+>     %5.1f r(N)/`N_total'*100 "%)"
+  father_sib missing:        230213 / 244863 ( 94.0%)
+
+. count if missing(mother_sib)
+  228,816
+
+. display "  mother_sib missing:        " r(N) " / `N_total' (" ///
+>     %5.1f r(N)/`N_total'*100 "%)"
+  mother_sib missing:        228816 / 244863 ( 93.4%)
+
+. count if missing(children)
+  9,772
+
+. display "  children missing:          " r(N) " / `N_total' (" ///
+>     %5.1f r(N)/`N_total'*100 "%)"
+  children missing:          9772 / 244863 (  4.0%)
+
+. count if missing(has2plus)
+  8,620
+
+. display "  has2plus missing:          " r(N) " / `N_total' (" ///
+>     %5.1f r(N)/`N_total'*100 "%)"
+  has2plus missing:          8620 / 244863 (  3.5%)
+
+. 
+. * ── 9g. Observations by year ─────────────────────────────
+. display _newline "  [7] OBSERVATIONS BY YEAR"
+
+  [7] OBSERVATIONS BY YEAR
+
+. tabulate year
+
+Survey year |      Freq.     Percent        Cum.
+------------+-----------------------------------
+       2010 |     33,600       13.72       13.72
+       2012 |     44,339       18.11       31.83
+       2014 |     37,147       15.17       47.00
+       2016 |     36,892       15.07       62.07
+       2018 |     37,354       15.26       77.32
+       2020 |     28,530       11.65       88.97
+       2022 |     27,001       11.03      100.00
+------------+-----------------------------------
+      Total |    244,863      100.00
+
+. 
+. display "=================================================="
+==================================================
+
+. display _newline "04_make_analysis_panel complete."
+
+04_make_analysis_panel complete.
+
+. 
+end of do-file
+
+. 
+. *******************************************************
+. * 8. Optional checks
+. *******************************************************
+. 
+. capture noisily do "$DO/99_checks.do"
+
+. 
+end of do-file
+
+. 
+. *******************************************************
+. * 9. End log
+. *******************************************************
+. 
+. display "========================================"
+========================================
+
+. display "Master do-file completed successfully."
+Master do-file completed successfully.
+
+. display "End time: $S_DATE $S_TIME"
+End time: 24 Apr 2026 06:08:27
+
+. display "========================================"
+========================================
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/huy/cfps_fertility_project/logs/00_master.log
+  log type:  text
+ closed on:  24 Apr 2026, 06:08:27
+---------------------------------------------------------------------------------------------------------------------
